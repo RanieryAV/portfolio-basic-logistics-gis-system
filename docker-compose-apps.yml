@@ -1,0 +1,115 @@
+services:
+
+  data-processing-flask-app:
+    container_name: data_processing_flask_app
+    build:
+      context: ./
+      dockerfile: ./applications/api_data_processing/dockerfile.api_data_processing
+    ports:
+      - ${FLASK_DATA_PROCESSING_PORT_DOCKER}:${FLASK_DATA_PROCESSING_PORT_DOCKER}
+    volumes:
+      - ./shared/utils/datasets:/app/datasets
+      - ./shared/utils/processed_output:/app/processed_output
+      - ./infrastructure/jars/postgresql-42.7.3.jar:/opt/jars/postgresql.jar:ro
+    environment:
+      # Flask-related env vars
+      FLASK_DATA_PROCESSING_HOST: ${FLASK_DATA_PROCESSING_HOST}
+      FLASK_DATA_PROCESSING_PORT: ${FLASK_DATA_PROCESSING_PORT_DOCKER}
+
+      # Spark-related env vars
+      SPARK_MASTER_RPC_PORT: ${SPARK_MASTER_RPC_PORT}
+      SPARK_MASTER_URL: "spark://spark-master:${SPARK_MASTER_RPC_PORT}"
+      SPARK_EVENTLOG_DIR: ${SPARK_EVENTLOG_DIR}
+
+      # Postgres env vars
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_HOST: ${POSTGRES_CONTAINER_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+
+      # Data processing specific env vars
+      PROCESSED_OUTPUT_DIR: ${PROCESSED_OUTPUT_DIR}
+
+      # ensure driver JVM and executors see the jar
+      PYSPARK_SUBMIT_ARGS: "--jars /opt/jars/postgresql.jar --driver-class-path /opt/jars/postgresql.jar pyspark-shell"
+      # optional fallback (some spark builds read this)
+      SPARK_CLASSPATH: "/opt/jars/postgresql.jar"
+    networks:
+      - logistics-gis-network
+
+  model-deployment-flask-app:
+    container_name: model_deployment_flask_app
+    build:
+      context: ./
+      dockerfile: applications/api_model_deployment/dockerfile.api_model_deployment
+    volumes:
+      - ./applications/api_model_deployment/models:/models
+      - ./infrastructure/jars/postgresql-42.7.3.jar:/opt/jars/postgresql.jar:ro
+    ports:
+      - ${FLASK_MODEL_DEPLOYMENT_PORT_DOCKER}:${FLASK_MODEL_DEPLOYMENT_PORT_DOCKER}
+      - 8503:8503 # Temporary port for the streamlit prototype
+    environment:
+      # Flask-related env vars
+      FLASK_MODEL_DEPLOYMENT_HOST: ${FLASK_MODEL_DEPLOYMENT_HOST}
+      FLASK_MODEL_DEPLOYMENT_PORT: ${FLASK_MODEL_DEPLOYMENT_PORT_DOCKER}
+      
+      # Postgres env vars
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_HOST: ${POSTGRES_CONTAINER_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+
+      # MLFlow env vars
+      MLFLOW_UI_PORT: ${MLFLOW_UI_PORT}
+      MLFLOW_URI: http://${MLFLOW_CONTAINER_HOST}:${MLFLOW_UI_PORT}
+
+      # ensure driver JVM and executors see the jar
+      PYSPARK_SUBMIT_ARGS: "--jars /opt/jars/postgresql.jar --driver-class-path /opt/jars/postgresql.jar pyspark-shell"
+      # optional fallback (some spark builds read this)
+      SPARK_CLASSPATH: "/opt/jars/postgresql.jar"
+    networks:
+      - logistics-gis-network
+
+  model-training-flask-app:
+    container_name: model_training_flask_app
+    build:
+      context: ./
+      dockerfile: applications/api_model_training/dockerfile.api_model_training
+    ports:
+      - ${FLASK_MODEL_TRAINING_PORT_DOCKER}:${FLASK_MODEL_TRAINING_PORT_DOCKER}
+    volumes:
+      - ./shared/utils/datasets:/app/datasets
+      - ./shared/utils/processed_output:/app/processed_output
+      - ./infrastructure/jars/postgresql-42.7.3.jar:/opt/jars/postgresql.jar:ro
+    gpus: all
+    environment:
+      # Flask-related env vars
+      FLASK_MODEL_TRAINING_HOST: ${FLASK_MODEL_TRAINING_HOST}
+      FLASK_MODEL_TRAINING_PORT: ${FLASK_MODEL_TRAINING_PORT_DOCKER}
+      
+      # Postgres env vars
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_HOST: ${POSTGRES_CONTAINER_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+
+      # MLFlow env vars
+      MLFLOW_UI_PORT: ${MLFLOW_UI_PORT}
+      MLFLOW_URI: http://${MLFLOW_CONTAINER_HOST}:${MLFLOW_UI_PORT}
+
+      # ensure driver JVM and executors see the jar
+      PYSPARK_SUBMIT_ARGS: "--jars /opt/jars/postgresql.jar --driver-class-path /opt/jars/postgresql.jar pyspark-shell"
+      # optional fallback (some spark builds read this)
+      SPARK_CLASSPATH: "/opt/jars/postgresql.jar"
+
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+    networks:
+      - logistics-gis-network
+
+networks:
+  logistics-gis-network:
+    driver: bridge

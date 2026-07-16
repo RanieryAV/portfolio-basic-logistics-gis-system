@@ -1,0 +1,212 @@
+services:
+
+  app-jupyter-notebooks:
+    container_name: app_jupyter_notebook_env
+    labels:
+      description: Environment for running Jupyter Notebooks
+      name: app_jupyter_notebook_env
+    volumes:
+      - ./shared/utils/notebooks:/home/notebooks
+      - ./shared/utils/datasets:/home/datasets
+    build:
+      context: shared/utils/jupyter_env/
+      dockerfile: dockerfile.jupyter
+    ports:
+      - "8888:8888"
+  
+  app-postgis-db:
+    image: kartoza/postgis:15-3.3
+    container_name: app_postgis_db
+    ports:
+      - "${POSTGRES_PORT}:${POSTGRES_PORT}"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_HOST: ${POSTGRES_CONTAINER_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+    restart: on-failure
+    healthcheck:
+      test: "exit 0"
+    networks:
+      - logistics-gis-network
+    volumes:
+      - ./infrastructure/database/postgis/init.sql:/docker-entrypoint-initdb.d/init.sql:Z
+      - type: bind
+        source: ./infrastructure/database/postgis/data
+        target: /var/lib/postgresql/15
+
+
+  app-dbeaver:
+    image: dbeaver/cloudbeaver:latest
+    container_name: app_dbeaver
+    restart: always
+    environment:
+      CB_INIT_CONNECTIONS: |
+        [
+          {
+            "id": "local-postgis",
+            "name": "PostGIS Database",
+            "driver": "postgresql",
+            "host": "${POSTGRES_CONTAINER_HOST}",
+            "port": 5432,
+            "database": "${POSTGRES_DB}",
+            "user": "${POSTGRES_USER}",
+            "password": "${POSTGRES_PASSWORD}"
+          }
+        ]
+      JAVA_OPTS: "-Xms512m -Xmx6144m -XX:+UseG1GC"
+    ports:
+      - 8083:8978
+    volumes:
+      - ./shared/utils/datasets:/home/datasets
+    networks:
+      - logistics-gis-network
+    depends_on:
+      - app-postgis-db
+
+  app-mlflow:
+    container_name: app_mlflow
+    build:
+      context: ./infrastructure/mlflow/
+      dockerfile: dockerfile.mlflow
+    depends_on:
+      - app-postgis-db
+    environment:
+      MLFLOW_TRACKING_DB_URI: ${MLFLOW_TRACKING_DB_URI}
+      MLFLOW_ARTIFACT_ROOT: ${MLFLOW_ARTIFACT_ROOT}
+      MLFLOW_HOST: ${MLFLOW_CONTAINER_HOST}
+      MLFLOW_UI_PORT: ${MLFLOW_UI_PORT}
+    ports:
+      - ${MLFLOW_UI_PORT}:${MLFLOW_UI_PORT}
+    networks:
+      - logistics-gis-network
+
+  spark-master:
+    container_name: spark-master
+    build:
+      context: .
+      dockerfile: infrastructure/spark/dockerfile.spark
+    environment:
+      - SPARK_MODE=master
+      - ALLOW_EMPTY_PASSWORD=yes
+      - SPARK_MASTER_WEBUI_PORT=${SPARK_MASTER_UI_PORT}
+      - PROCESSED_OUTPUT_DIR=${PROCESSED_OUTPUT_DIR} # Data processing specific env vars
+      - SPARK_DRIVER_BIND_ADDRESS=0.0.0.0
+    ports:
+    - "${SPARK_MASTER_RPC_PORT}:${SPARK_MASTER_RPC_PORT}"
+    - "${SPARK_MASTER_UI_PORT}:${SPARK_MASTER_UI_PORT}"
+    volumes:
+      - spark-events:/opt/spark-events
+      - ./shared/utils/datasets:/app/datasets
+      - ./shared/utils/processed_output:/app/processed_output
+      - /infrastructure/jars/postgresql-42.7.3.jar:/opt/jars/postgresql.jar:ro
+    networks:
+      - logistics-gis-network
+
+  spark-worker-1:
+    container_name: spark-worker-1
+    build:
+      context: .
+      dockerfile: infrastructure/spark/dockerfile.spark
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:${SPARK_MASTER_RPC_PORT}
+      - ALLOW_EMPTY_PASSWORD=yes
+      - SPARK_WORKER_MEMORY=1G
+      - SPARK_WORKER_CORES=2
+      - SPARK_WORKER_WEBUI_PORT=${SPARK_WORKER_1_UI_PORT}
+      - PROCESSED_OUTPUT_DIR=${PROCESSED_OUTPUT_DIR} # Data processing specific env vars
+      - SPARK_DRIVER_BIND_ADDRESS=0.0.0.0
+    depends_on:
+      - spark-master
+    ports:
+    - "${SPARK_WORKER_1_UI_PORT}:${SPARK_WORKER_1_UI_PORT}"
+    volumes:
+      - spark-events:/opt/spark-events
+      - ./shared/utils/datasets:/app/datasets
+      - ./shared/utils/processed_output:/app/processed_output
+      - /infrastructure/jars/postgresql-42.7.3.jar:/opt/jars/postgresql.jar:ro
+    networks:
+      - logistics-gis-network
+
+  spark-worker-2:
+    container_name: spark-worker-2
+    build:
+      context: .
+      dockerfile: infrastructure/spark/dockerfile.spark
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:${SPARK_MASTER_RPC_PORT}
+      - ALLOW_EMPTY_PASSWORD=yes
+      - SPARK_WORKER_MEMORY=1G
+      - SPARK_WORKER_CORES=2
+      - SPARK_WORKER_WEBUI_PORT=${SPARK_WORKER_2_UI_PORT}
+      - PROCESSED_OUTPUT_DIR=${PROCESSED_OUTPUT_DIR} # Data processing specific env vars
+      - SPARK_DRIVER_BIND_ADDRESS=0.0.0.0
+    depends_on:
+      - spark-master
+    ports:
+    - "${SPARK_WORKER_2_UI_PORT}:${SPARK_WORKER_2_UI_PORT}"
+    volumes:
+      - spark-events:/opt/spark-events
+      - ./shared/utils/datasets:/app/datasets
+      - ./shared/utils/processed_output:/app/processed_output
+      - /infrastructure/jars/postgresql-42.7.3.jar:/opt/jars/postgresql.jar:ro
+    networks:
+      - logistics-gis-network
+  
+  # spark-worker-3:
+  #   container_name: spark-worker-3
+  #   build:
+  #     context: .
+  #     dockerfile: infrastructure/spark/dockerfile.spark
+  #   environment:
+  #     - SPARK_MODE=worker
+  #     - SPARK_MASTER_URL=spark://spark-master:${SPARK_MASTER_RPC_PORT}
+  #     - ALLOW_EMPTY_PASSWORD=yes
+  #     - SPARK_WORKER_MEMORY=2G
+  #     - SPARK_WORKER_CORES=2
+  #     - SPARK_WORKER_WEBUI_PORT=${SPARK_WORKER_3_UI_PORT}
+  #     - PROCESSED_OUTPUT_DIR=${PROCESSED_OUTPUT_DIR} # Data processing specific env vars
+  #     - SPARK_DRIVER_BIND_ADDRESS=0.0.0.0
+  #   depends_on:
+  #     - spark-master
+  #   ports:
+  #   - "${SPARK_WORKER_3_UI_PORT}:${SPARK_WORKER_3_UI_PORT}"
+  #   volumes:
+  #     - spark-events:/opt/spark-events
+  #     - ./shared/utils/datasets:/app/datasets
+  #     - ./shared/utils/processed_output:/app/processed_output
+  #    - /infrastructure/jars/postgresql-42.7.3.jar:/opt/jars/postgresql.jar:ro
+  #   networks:
+  #     - logistics-gis-network
+
+  spark-history:
+    container_name: spark-history
+    build:
+      context: .
+      dockerfile: infrastructure/spark/dockerfile.spark
+    environment:
+      - PROCESSED_OUTPUT_DIR=${PROCESSED_OUTPUT_DIR} # Data processing specific env vars
+      - SPARK_DRIVER_BIND_ADDRESS=0.0.0.0
+    depends_on:
+      - spark-master
+    ports:
+    - "${SPARK_HISTORY_UI_PORT}:${SPARK_HISTORY_UI_PORT}"
+    volumes:
+      - spark-events:/opt/spark-events
+      - ./shared/utils/datasets:/app/datasets
+      - ./shared/utils/processed_output:/app/processed_output
+    command: >
+      /opt/bitnami/spark/sbin/start-history-server.sh
+      --properties-file /opt/bitnami/spark/conf/spark-defaults.conf
+    networks:
+      - logistics-gis-network
+
+networks:
+  logistics-gis-network:
+    driver: bridge
+
+volumes:
+  spark-events:

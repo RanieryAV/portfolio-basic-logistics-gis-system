@@ -1,0 +1,22 @@
+{
+  "name": "portfolio-basic-logistics-gis-system",
+  "version": "1.0.0",
+  "description": "Porfolio implementation of a basic GIS system with PostgreSQL (and its PostGIS extension) alongside a Javascript/Python web app.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RanieryAV/portfolio-basic-logistics-gis-system.git"
+  },
+  "keywords": [
+    "GIS"
+  ],
+  "author": "Raniery",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/RanieryAV/portfolio-basic-logistics-gis-system/issues"
+  },
+  "homepage": "https://github.com/RanieryAV/portfolio-basic-logistics-gis-system#readme"
+}

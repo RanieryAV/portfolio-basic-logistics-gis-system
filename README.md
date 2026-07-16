@@ -4,7 +4,7 @@
 1. Clone this repository
     ```sh
     git clone https://github.com/RanieryAV/portfolio-basic-logistics-gis-system.git
-    cd masters-project-PPGEEC
+    cd portfolio-basic-logistics-gis-system
     ```
 2. Run the `install_dependencies.sh` script to install the required dependencies.
     ```sh

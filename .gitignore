@@ -168,10 +168,11 @@ activemq-data/
 *.sage.py
 
 # Environments
-.env
+#.env
 .envrc
 .venv
 env/
+logistics_gis_venv/
 venv/
 ENV/
 env.bak/

@@ -3,7 +3,7 @@
 # Setup instructions
 1. Clone this repository
     ```sh
-    git clone https://github.com/yourusername/masters-project-PPGEEC.git
+    git clone https://github.com/RanieryAV/portfolio-basic-logistics-gis-system.git
     cd masters-project-PPGEEC
     ```
 2. Run the `install_dependencies.sh` script to install the required dependencies.

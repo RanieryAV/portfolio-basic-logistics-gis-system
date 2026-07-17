@@ -1,5 +1,10 @@
 # portfolio-basic-logistics-gis-system
 
+# Prerequisites:
+1. Operating System (OS): **Linux** (such as, but not limited to, [Ubuntu](https://ubuntu.com/download/desktop))
+2. A global Python install and the `pyenv` library installed
+3. Docker Engine installed and running [(Reference link)](https://docs.docker.com/engine/install/)
+
 # Setup instructions
 1. Clone this repository
     ```sh

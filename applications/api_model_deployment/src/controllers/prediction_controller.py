@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify, current_app
 from flasgger import swag_from
 from os import path
 from ..services.prediction_service import PredictionService
-#from domain.config.data_processing.spark_session_initializer import SparkSessionInitializer
+from domain.config.data_processing.spark_session_initializer import SparkSessionInitializer
 import traceback
 import logging
 import numpy as np

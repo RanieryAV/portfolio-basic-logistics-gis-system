@@ -80,11 +80,16 @@ if [ "$?" -ne 0 ]; then
   #exit 1
 fi
 
-# Verify installation of Flask
-if ! python -c "import flask" &> /dev/null; then
-  echo "Flask module not found. Installation failed."
-  #exit 1
+# Verify installation of FastAPI
+python -c "import fastapi"
+if [ $? -eq 0 ]; then
+	echo "FastAPI module successfully installed and verified."
+	else
+	echo "FastAPI module not found. Installation failed."
 fi
+
+echo "Installing the required node packages"
+npm install
 
 # Install the required node packages
 echo "Installing the required node packages"

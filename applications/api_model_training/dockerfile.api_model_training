@@ -52,5 +52,5 @@ COPY ./domain/ ./domain/
 RUN pip install --upgrade pip setuptools wheel
 RUN pip install -r ./api-model-training-requirements.txt
 
-EXPOSE ${FLASK_MODEL_TRAINING_PORT}
+EXPOSE ${FASTAPI_MODEL_TRAINING_PORT}
 CMD ["python3", "run.py"]

@@ -27,7 +27,7 @@ RUN pip install -r ./api-data-processing-requirements.txt
 # Use spark user at runtime
 USER spark
 
-EXPOSE ${FLASK_DATA_PROCESSING_PORT}
+EXPOSE ${FASTAPI_DATA_PROCESSING_PORT}
 
 ENTRYPOINT ["./entrypoint.sh"]
 CMD ["python3", "run.py"]

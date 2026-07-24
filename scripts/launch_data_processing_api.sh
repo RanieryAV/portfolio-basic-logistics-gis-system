@@ -3,6 +3,11 @@
 # Add the root directory to the PYTHONPATH
 export PYTHONPATH=$(pwd)
 
+# Load environment variables from the repository .env file
+set -a
+source ./.env
+set +a
+
 # activate the virtual environment
 VENV_NAME="logistics_gis_venv"
 source "./$VENV_NAME/bin/activate"
@@ -15,7 +20,7 @@ echo "="
 echo "=> Activating virtual environment..."
 source logistics_gis_venv/bin/activate
 
-echo "=> Initializing Uvicorn with Hot-Reload on port 5000..."
+echo "=> Initializing Uvicorn with Hot-Reload on port ${FASTAPI_DATA_PROCESSING_PORT}..."
 
 # Run the API
-uvicorn applications.api_data_processing.run:app --host 0.0.0.0 --port 5000 --reload
+uvicorn applications.api_data_processing.run:app --host 0.0.0.0 --port ${FASTAPI_DATA_PROCESSING_PORT} --reload

@@ -27,7 +27,7 @@ RUN pip install --upgrade pip setuptools wheel
 RUN pip install -r ./api-model-deployment-requirements.txt
 
 # Expose the port the app runs on
-EXPOSE ${FLASK_MODEL_DEPLOYMENT_PORT}
+EXPOSE ${FASTAPI_MODEL_DEPLOYMENT_PORT}
 EXPOSE 8502
 
 CMD ["python3", "run.py"]

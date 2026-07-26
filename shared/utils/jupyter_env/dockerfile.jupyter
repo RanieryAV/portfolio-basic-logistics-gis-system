@@ -1,5 +1,8 @@
-# Set the base image using Ubuntu 20.04
-FROM ubuntu:20.04
+#Set the base image using Ubuntu 22.04 (with Python 3.10+)
+FROM ubuntu:22.04
+
+# Avoids time zone prompts during apt-get install
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Set environmental variable(s)
 ENV ACCEPT_INTEL_PYTHON_EULA=yes

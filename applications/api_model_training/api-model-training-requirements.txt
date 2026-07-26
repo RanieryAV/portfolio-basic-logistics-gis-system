@@ -12,7 +12,7 @@ tensorflow== 2.15.0
 geopy==2.4.1
 folium==0.17.0
 pyspark==3.5.1
-numpy==1.26.4
+numpy
 matplotlib
 seaborn
 pydot

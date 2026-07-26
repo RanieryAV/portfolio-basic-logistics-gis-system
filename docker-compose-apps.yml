@@ -1,5 +1,22 @@
 services:
 
+  frontend_demo:
+    container_name: frontend-demo-app
+    build:
+      context: ./applications/frontend_demo
+      dockerfile: dockerfile.frontend_demo
+    ports:
+    - "${FRONTEND_DEMO_PORT_DOCKER}:${FRONTEND_DEMO_PORT_DOCKER}"
+    volumes:
+    - ./applications/frontend_demo:/app
+    - /app/node_modules
+    environment:
+    - NODE_ENV=development
+    depends_on:
+      - data-processing-fastapi-app
+    networks:
+    - logistics-gis-network
+  
   data-processing-fastapi-app:
     container_name: data_processing_fastapi_app
     build:

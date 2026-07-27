@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet';
+import { MapContainer, TileLayer, GeoJSON, LayersControl } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -50,9 +50,19 @@ export default function Map({ geoData }: { geoData: any }) {
       zoom={10}
       style={{ height: '60vh', width: '100%', borderRadius: '8px', zIndex: 1 }}
     >
-      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-      {/* The key forces Leaflet to re-render if geoData changes in the future. */}
-      {geoData && <GeoJSON key={JSON.stringify(geoData)} data={geoData} onEachFeature={onEachFeature} />}
+      <LayersControl position="topright">
+        {/* Base Layer: The actual map background */}
+        <LayersControl.BaseLayer checked name="OpenStreetMap">
+          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        </LayersControl.BaseLayer>
+
+        {/* Overlay: The togglable points from PostGIS */}
+        {geoData && (
+          <LayersControl.Overlay checked name="Postal Agencies (PostGIS)">
+            <GeoJSON key={JSON.stringify(geoData)} data={geoData} onEachFeature={onEachFeature} />
+          </LayersControl.Overlay>
+        )}
+      </LayersControl>
     </MapContainer>
   );
 }

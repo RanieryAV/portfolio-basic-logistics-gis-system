@@ -24,7 +24,6 @@ class SavePostalAgenciesService:
 
             "name",
             "address",
-            "district",
             "city",
             "state",
             "zip_code",
@@ -97,7 +96,6 @@ class SavePostalAgenciesService:
 
             "name",
             "address",
-            "district",
             "city",
             "state",
             "zip_code",
@@ -164,9 +162,6 @@ class SavePostalAgenciesService:
 
                 "address":
                     r.get("address"),
-
-                "district":
-                    r.get("district"),
 
                 "city":
                     r.get("city"),

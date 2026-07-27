@@ -1,10 +1,9 @@
-from domain.config.database_config import db
 from geoalchemy2 import Geometry
 from geoalchemy2.shape import to_shape
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import Column, Integer, String, Text, Float, UniqueConstraint
+from domain.config.database_config import Base
 
-
-class PostalAgencies(db.Model):
+class PostalAgencies(Base):
 
     __tablename__ = "postal_agencies"
 
@@ -19,58 +18,53 @@ class PostalAgencies(db.Model):
         },
     )
 
-    primary_key = db.Column(
-        db.Integer,
+    primary_key = Column(
+        Integer,
         primary_key=True,
         autoincrement=True
     )
 
-    name = db.Column(
-        db.String(255),
+    name = Column(
+        String(255),
         nullable=False
     )
 
-    address = db.Column(
-        db.Text,
+    address = Column(
+        Text,
         nullable=False
     )
 
-    district = db.Column(
-        db.String(255),
+    city = Column(
+        String(255),
+        nullable=False
+    )
+
+    state = Column(
+        String(2),
+        nullable=False
+    )
+
+    zip_code = Column(
+        String(15),
+        nullable=False
+    )
+
+    phone = Column(
+        String(80),
         nullable=True
     )
 
-    city = db.Column(
-        db.String(255),
+    latitude = Column(
+        Float,
         nullable=False
     )
 
-    state = db.Column(
-        db.String(2),
+    longitude = Column(
+        Float,
         nullable=False
     )
 
-    zip_code = db.Column(
-        db.String(15),
-        nullable=False
-    )
-
-    phone = db.Column(
-        db.String(80),
-        nullable=True
-    )
-
-    latitude = db.Column(
-        db.Float,
-        nullable=False
-    )
-
-    longitude = db.Column(
-        db.Float,
-        nullable=False
-    )
-
-    location = db.Column(
+    location = Column(
         Geometry(
             geometry_type="POINT",
             srid=4326
@@ -79,12 +73,10 @@ class PostalAgencies(db.Model):
     )
 
     def __init__(self, **kwargs):
-
         for key, value in kwargs.items():
             setattr(self, key, value)
 
     def to_dict(self):
-
         point_shape = (
             to_shape(self.location)
             if self.location is not None
@@ -98,26 +90,14 @@ class PostalAgencies(db.Model):
         )
 
         return {
-
             "primary_key": self.primary_key,
-
             "name": self.name,
-
             "address": self.address,
-
-            "district": self.district,
-
             "city": self.city,
-
             "state": self.state,
-
             "zip_code": self.zip_code,
-
             "phone": self.phone,
-
             "latitude": self.latitude,
-
             "longitude": self.longitude,
-
             "location": point_wkt
         }

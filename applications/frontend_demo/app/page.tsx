@@ -9,6 +9,11 @@ import 'reactflow/dist/style.css';
 const { Header, Content } = Layout;
 const { Title } = Typography;
 
+// Reads the port from .env (remember that in Next.js client-side, the variable MUST start with NEXT_PUBLIC_)
+// We add a fallback ('5557') in case the variable is not found during build.
+const API_PORT = process.env.NEXT_PUBLIC_FASTAPI_DATA_PROCESSING_DOCKER || process.env.FASTAPI_DATA_PROCESSING_PORT_DOCKER || '5556';
+const API_BASE_URL = `http://localhost:${API_PORT}`;
+
 type GeoData = {
     type: string;
     features: Array<{
@@ -25,14 +30,14 @@ const DynamicMap = dynamic(() => import('./Map'), {
 });
 
 const initialNodes: Node[] = [
-{ id: '1', position: { x: 50, y: 50 }, data: { label: 'PostGIS DB (WKB)' }, type: 'input' },
-{ id: '2', position: { x: 50, y: 150 }, data: { label: 'FastAPI (Data Processing)' } },
-{ id: '3', position: { x: 50, y: 250 }, data: { label: 'Leaflet UI (GeoJSON)' }, type: 'output' },
+    { id: '1', position: { x: 50, y: 50 }, data: { label: 'PostGIS DB (WKB)' }, type: 'input' },
+    { id: '2', position: { x: 50, y: 150 }, data: { label: 'FastAPI (Data Processing)' } },
+    { id: '3', position: { x: 50, y: 250 }, data: { label: 'Leaflet UI (GeoJSON)' }, type: 'output' },
 ];
 
 const initialEdges: Edge[] = [
-{ id: 'e1-2', source: '1', target: '2', animated: true },
-{ id: 'e2-3', source: '2', target: '3', animated: true },
+    { id: 'e1-2', source: '1', target: '2', animated: true },
+    { id: 'e2-3', source: '2', target: '3', animated: true },
 ];
 
 export default function Home() {
@@ -40,7 +45,8 @@ export default function Home() {
     const [geoData, setGeoData] = useState<GeoData | null>(null);
 
     useEffect(() => {
-        fetch('http://localhost:5000/health')
+        // Now using the dynamic base URL constructed with the .env port
+        fetch(`${API_BASE_URL}/health`)
             .then((res) => {
                 if (!res.ok) throw new Error('Network error');
                 return res.json();
@@ -79,17 +85,31 @@ export default function Home() {
                             <Row justify="space-between" align="middle" gutter={[12, 12]}>
                                 <Col>
                                     <Statistic
-                                        title="API Status (Data Processing)"
+                                        title={`API Status (Port: ${API_PORT})`}
                                         value={apiStatus}
                                         valueStyle={{ fontSize: 16, lineHeight: 1.2 }}
                                     />
                                 </Col>
-                                <Col>
+                               <Col>
                                     <Button
                                         type="primary"
-                                        onClick={() => message.info('Trajectory ingestion (WKT) via POST will be enabled soon.')}
+                                        onClick={() => {
+                                            message.loading({ content: 'Ingesting Postal Agencies...', key: 'ingest' });
+                                            // Dynamic route injected here as well
+                                            fetch(`${API_BASE_URL}/api/v1/collect/postal-agencies`, { method: 'POST' })
+                                                .then(async (res) => {
+                                                    if (!res.ok) throw new Error('API Error');
+                                                    return res.json();
+                                                })
+                                                .then((data) => {
+                                                    message.success({ content: data.message || 'Ingestion successful!', key: 'ingest', duration: 3 });
+                                                })
+                                                .catch(() => {
+                                                    message.error({ content: 'Failed to ingest data. Check API logs.', key: 'ingest', duration: 3 });
+                                                });
+                                        }}
                                     >
-                                        Simulate Trajectory Ingestion
+                                        Simulate Postal Agencies Ingestion
                                     </Button>
                                 </Col>
                             </Row>

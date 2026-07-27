@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 from typing import Optional
 
 # IMPORT THE SERVICES
-from src.services.collect_data_service import IngestPostalAgenciesService
+from src.services.collect_data_service import IngestPostalAgenciesService, QueryPostalAgenciesService
 
 # Router replacing the 'Namespace' from flask_restx
 router = APIRouter(prefix="/collect", tags=["Data Collection"])
@@ -61,6 +61,18 @@ class CollectDataController:
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
+    async def get_postal_agencies_from_db(self):
+        """
+        Fetches all postal agencies from the PostGIS database and returns them as a GeoJSON FeatureCollection.
+        """
+        try:
+            query_service = QueryPostalAgenciesService()
+            result = query_service.execute()
+            return result
+        except Exception as e:
+            # Return empty FeatureCollection to gracefully handle failures (non-destructive)
+            return {"type": "FeatureCollection", "features": []}
+
 # ---------------------------------------------------------
 # Router Mappings
 # ---------------------------------------------------------
@@ -76,8 +88,15 @@ router.add_api_route(
 )
 
 router.add_api_route(
-    "/postal-agencies", 
+    "/ingest-postal-agencies-file", 
     controller_instance.ingest_postal_agencies, 
     methods=["POST"], 
     summary="Ingest Postal Agencies GeoJSON"
+)
+
+router.add_api_route(
+    "/get-postal-agencies-from-db", 
+    controller_instance.get_postal_agencies_from_db, 
+    methods=["GET"], 
+    summary="Get Postal Agencies as GeoJSON"
 )

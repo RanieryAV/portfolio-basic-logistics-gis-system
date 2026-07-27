@@ -44,6 +44,23 @@ export default function Home() {
     const [apiStatus, setApiStatus] = useState('Checking...');
     const [geoData, setGeoData] = useState<GeoData | null>(null);
 
+    const fetchMapData = () => {
+        fetch(`${API_BASE_URL}/api/v1/collect/get-postal-agencies-from-db`)
+            .then(res => {
+                if (!res.ok) throw new Error('Failed to fetch map data');
+                return res.json();
+            })
+            .then(data => {
+                // Non-destructive fallback: Only update map if DB returned actual features
+                if (data && data.features && data.features.length > 0) {
+                    setGeoData(data);
+                }
+            })
+            .catch(err => {
+                console.error("Could not load map data from DB, keeping fallback.", err);
+            });
+    };
+
     useEffect(() => {
         // Now using the dynamic base URL constructed with the .env port
         fetch(`${API_BASE_URL}/health`)
@@ -54,6 +71,7 @@ export default function Home() {
             .then((data) => {
                 setApiStatus(data.status === 'online' ? 'Online' : 'Offline');
                 message.success('Successfully connected to the FastAPI!');
+                fetchMapData(); // Fetch the DB data automatically if API is online
             })
             .catch(() => {
                 setApiStatus('Offline');
@@ -96,13 +114,14 @@ export default function Home() {
                                         onClick={() => {
                                             message.loading({ content: 'Ingesting Postal Agencies...', key: 'ingest' });
                                             // Dynamic route injected here as well
-                                            fetch(`${API_BASE_URL}/api/v1/collect/postal-agencies`, { method: 'POST' })
+                                            fetch(`${API_BASE_URL}/api/v1/collect/ingest-postal-agencies-file`, { method: 'POST' })
                                                 .then(async (res) => {
                                                     if (!res.ok) throw new Error('API Error');
                                                     return res.json();
                                                 })
                                                 .then((data) => {
                                                     message.success({ content: data.message || 'Ingestion successful!', key: 'ingest', duration: 3 });
+                                                    fetchMapData(); // Refresh the map with newly ingested data right after a successful POST
                                                 })
                                                 .catch(() => {
                                                     message.error({ content: 'Failed to ingest data. Check API logs.', key: 'ingest', duration: 3 });

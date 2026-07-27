@@ -126,3 +126,53 @@ class IngestPostalAgenciesService:
             raise e
         finally:
             self.db.close()
+
+class QueryPostalAgenciesService:
+    """
+    Service responsible for querying the PostGIS database for all saved
+    postal agencies and returning them formatted as a GeoJSON FeatureCollection.
+    """
+    
+    def __init__(self):
+        self.db = SessionLocal()
+
+    def execute(self):
+        """
+        Executes the query and formats the output. Gracefully handles errors 
+        by returning an empty FeatureCollection if the database is unavailable 
+        or the table doesn't exist yet.
+        """
+        try:
+            agencies = self.db.query(PostalAgencies).all()
+            features = []
+            
+            for agency in agencies:
+                agency_dict = agency.to_dict()
+                
+                # Using the raw latitude and longitude floats already saved in the database
+                features.append({
+                    "type": "Feature",
+                    "properties": {
+                        "Name": agency_dict.get("name"),
+                        "Address": agency_dict.get("address"),
+                        "City": agency_dict.get("city"),
+                        "State": agency_dict.get("state"),
+                        "ZIP Code": agency_dict.get("zip_code"),
+                        "Phone": agency_dict.get("phone")
+                    },
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [agency_dict.get("longitude"), agency_dict.get("latitude")]
+                    }
+                })
+            
+            return {
+                "type": "FeatureCollection",
+                "features": features
+            }
+            
+        except Exception as e:
+            logger.error(f"Error querying postal agencies: {str(e)}")
+            return {"type": "FeatureCollection", "features": []} 
+        finally:
+            self.db.close()

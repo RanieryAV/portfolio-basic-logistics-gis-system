@@ -7,7 +7,7 @@ __pycache__
 *.pkl
 
 # AIS dataset
-shared/utils/datasets
+#shared/utils/datasets
 shared/utils/processed_output
 
 # Node modules

@@ -1,5 +1,5 @@
 # Minimal Dockerfile (use this to replace the current one)
-FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
+FROM nvidia/cuda:12.2.2-cudnn8-runtime-ubuntu22.04
 
 # ----------------------------
 # Base system dependencies
@@ -22,7 +22,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libffi-dev \
     openjdk-21-jdk \
     graphviz \
-    cuda-nvcc-11-8 && \
+    cuda-nvcc-12-2 && \
     rm -rf /var/lib/apt/lists/*
 
 RUN ln -sf /usr/bin/python3.11 /usr/bin/python3

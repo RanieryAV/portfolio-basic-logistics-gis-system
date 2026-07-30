@@ -6,6 +6,11 @@ infrastructure/database/postgis/data/*
 __pycache__
 *.pkl
 
+# Pants (smart build system)
+.pants.d/
+.pdm-build/
+dist/
+
 # AIS dataset
 shared/utils/datasets
 shared/utils/processed_output

@@ -1,0 +1,26 @@
+[GLOBAL]
+pants_version = "2.20.0"
+backend_packages = [
+  "pants.backend.python",
+  "pants.backend.experimental.python.lint.ruff.check",   # Ruff Linter
+  "pants.backend.experimental.python.lint.ruff.format",  # Ruff Formatter
+  "pants.backend.python.typecheck.mypy",
+]
+
+[python]
+# Matches your repository's .python-version (3.11)
+interpreter_constraints = ["==3.11.*"]
+
+[source]
+# Tell Pants where your Python import paths begin
+root_patterns = [
+    "/",                                  # For your shared domain/ folder
+    "/applications/api_data_processing",  # So 'import src...' works here
+    "/applications/api_model_deployment", # So 'import src...' works here
+    "/applications/api_model_training"    # So 'import src...' works here
+]
+
+[python-infer]
+# Tell Pants to resolve overlapping dependencies (like FastAPI)
+# by picking the requirements target in the same source root as the code.
+ambiguity_resolution = "by_source_root"

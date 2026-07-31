@@ -79,7 +79,7 @@ class SparkSessionInitializer:
         try:
             if (
                 spark_rpc_message_maxsize_mb <= 0
-                or spark_rpc_message_maxsize_mb == None
+                or spark_rpc_message_maxsize_mb is None
             ):
                 # default: keep Spark default 128 MB (do not force any change)
                 logger.warning(

@@ -10,8 +10,10 @@ services:
     volumes:
     - ./applications/frontend_demo:/app
     - /app/node_modules
+    - /app/.next
     environment:
     - NODE_ENV=development
+    - PORT=${FRONTEND_DEMO_PORT_DOCKER}
     depends_on:
       - data-processing-fastapi-app
     networks:

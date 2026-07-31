@@ -1,1 +1,0 @@
-[{"command":"docker","args":["-d","-f","compose","docker-compose-infra.yml","up"],"deps":{},"env":{},"inputs":{".moon/workspace.yml":"d05496ba3f7f18b3847aa6cbed6444b1c76b165e"},"inputEnv":{},"outputs":[],"projectDeps":[],"target":"root:infra-up","toolchains":["system"],"version":"3"}]

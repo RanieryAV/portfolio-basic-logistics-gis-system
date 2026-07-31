@@ -1,9 +1,8 @@
-from fastapi import APIRouter, HTTPException
-import traceback
-from datetime import datetime
 import logging
+import traceback
+
 from dotenv import load_dotenv
-import tensorflow as tf
+from fastapi import APIRouter, HTTPException
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -35,7 +34,7 @@ class TrainingController:
             }
         except ValueError as ve:
             raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
+        except Exception:
             logger.error(f"Error during training: {traceback.format_exc()}")
             raise HTTPException(status_code=500, detail="Internal error during training.")
 

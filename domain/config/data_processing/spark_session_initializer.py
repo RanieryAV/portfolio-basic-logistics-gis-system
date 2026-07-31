@@ -1,9 +1,10 @@
 import logging
-from flask import Blueprint, request, jsonify
 import os
 import socket
-from pyspark.sql import SparkSession
+
 from dotenv import load_dotenv
+from flask import Blueprint
+from pyspark.sql import SparkSession
 
 preprocess_data_bp = Blueprint('process_data_bp', __name__)
 

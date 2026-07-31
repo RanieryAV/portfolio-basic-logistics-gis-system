@@ -1,11 +1,4 @@
-import os
-import socket
 import logging
-from datetime import datetime
-from pyspark.sql import functions as F
-from pyspark.sql import types as T
-from pyspark.sql import functions as F
-from pyspark.sql import SparkSession
 
 logger = logging.getLogger(__name__)
 class PredictionService:

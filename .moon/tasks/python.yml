@@ -1,0 +1,17 @@
+# .moon/tasks/python.yml
+tasks:
+  # Base linting (reads code, flags errors)
+  lint:
+    command: '$MOON_WORKSPACE_ROOT/logistics_gis_venv/bin/ruff check .'
+    inputs:
+      - 'src/**/*'
+      - 'tests/**/*'
+      - '/pyproject.toml'
+  
+  # Autofixing (fixes fixable lint errors automatically)
+  lint-fix:
+    command: '$MOON_WORKSPACE_ROOT/logistics_gis_venv/bin/ruff check --fix .'
+    
+  # Formatting (restructures how code appears)
+  format:
+    command: '$MOON_WORKSPACE_ROOT/logistics_gis_venv/bin/ruff format .'

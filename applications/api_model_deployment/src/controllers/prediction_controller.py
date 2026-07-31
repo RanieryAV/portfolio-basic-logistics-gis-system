@@ -1,13 +1,11 @@
-from fastapi import APIRouter, HTTPException
-import traceback
 import logging
-import numpy as np
-import pandas as pd
+import traceback
+
 from dotenv import load_dotenv
+from fastapi import APIRouter, HTTPException
 
 # IMPORT THE SERVICES
-from src.services.prediction_service import PredictionService
-from domain.config.data_processing.spark_session_initializer import SparkSessionInitializer
+
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -40,7 +38,7 @@ class PredictionController:
             }
         except ValueError as ve:
             raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
+        except Exception:
             logger.error(f"Error during prediction: {traceback.format_exc()}")
             raise HTTPException(status_code=500, detail="Internal error during prediction.")
 

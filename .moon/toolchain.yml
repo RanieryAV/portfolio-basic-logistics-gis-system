@@ -1,0 +1,4 @@
+# .moon/toolchain.yml
+python:
+  version: '3.11' # Matches the 3.11 in the .python-version file
+  venvName: 'logistics_gis_venv'

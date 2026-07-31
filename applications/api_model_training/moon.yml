@@ -1,0 +1,19 @@
+# applications/api_model_training/moon.yml
+language: python
+dependsOn:
+  - 'domain'
+  - 'infrastructure'
+
+tasks:
+  run-sh:
+    command: './scripts/launch_model_training_api.sh'
+    options:
+      runFromWorkspaceRoot: true
+  
+  run-local:
+    command: 'python run.py'
+    
+  docker-compose-up:
+    command: 'docker compose -f docker-compose-apps.yml up -d --build model_training_fastapi_app'
+    options:
+      runFromWorkspaceRoot: true

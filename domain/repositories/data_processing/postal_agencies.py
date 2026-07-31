@@ -1,7 +1,9 @@
 from geoalchemy2 import Geometry
 from geoalchemy2.shape import to_shape
-from sqlalchemy import Column, Integer, String, Text, Float, UniqueConstraint
+from sqlalchemy import Column, Float, Integer, String, Text, UniqueConstraint
+
 from domain.config.database_config import Base
+
 
 class PostalAgencies(Base):
 

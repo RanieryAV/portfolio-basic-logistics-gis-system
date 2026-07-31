@@ -1,0 +1,19 @@
+# applications/frontend_demo/moon.yml
+language: typescript
+
+tasks:
+  run-sh:
+    command: './scripts/launch_frontend_demo.sh'
+    options:
+      runFromWorkspaceRoot: true
+
+  dev:
+    command: 'npm run dev'
+    
+  build:
+    command: 'npm run build'
+    
+  docker-compose-up:
+    command: 'docker compose -f docker-compose-apps.yml up -d --build frontend_demo_app'
+    options:
+      runFromWorkspaceRoot: true

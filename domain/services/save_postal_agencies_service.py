@@ -1,13 +1,12 @@
-from domain.config.database_config import db
-from domain.repositories.data_processing.postal_agencies import PostalAgencies
+import gc
+import logging
 
+from pyspark.sql import functions as F
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 
-from pyspark.sql import functions as F
-
-import logging
-import gc
+from domain.config.database_config import db
+from domain.repositories.data_processing.postal_agencies import PostalAgencies
 
 logger = logging.getLogger(__name__)
 

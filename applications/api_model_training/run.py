@@ -1,7 +1,7 @@
 import os
-from domain.config.database_config import DATABASE_URI
-from dotenv import load_dotenv
+
 import uvicorn
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 

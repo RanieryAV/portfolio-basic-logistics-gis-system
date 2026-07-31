@@ -1,0 +1,19 @@
+# applications/api_model_deployment/moon.yml
+language: python
+dependsOn:
+  - 'domain'
+  - 'infrastructure'
+
+tasks:
+  run-sh:
+    command: './scripts/launch_model_deployment_api.sh'
+    options:
+      runFromWorkspaceRoot: true
+  
+  run-local:
+    command: 'python run.py'
+    
+  docker-compose-up:
+    command: 'docker compose -f docker-compose-apps.yml up -d --build model_deployment_fastapi_app'
+    options:
+      runFromWorkspaceRoot: true

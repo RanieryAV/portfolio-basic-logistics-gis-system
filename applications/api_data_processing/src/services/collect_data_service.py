@@ -1,10 +1,11 @@
 import json
-import os
 import logging
-from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy import text
-from domain.config.database_config import SessionLocal, engine, Base
+import os
+
+from domain.config.database_config import Base, SessionLocal, engine
 from domain.repositories.data_processing.postal_agencies import PostalAgencies
+from sqlalchemy import text
+from sqlalchemy.dialects.postgresql import insert
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +123,7 @@ class IngestPostalAgenciesService:
             
         except Exception as e:
             self.db.rollback()
-            logger.error(f"Error ingesting postal agencies: {str(e)}")
+            logger.error(f"Error ingesting postal agencies: {e!s}")
             raise e
         finally:
             self.db.close()
@@ -172,7 +173,7 @@ class QueryPostalAgenciesService:
             }
             
         except Exception as e:
-            logger.error(f"Error querying postal agencies: {str(e)}")
+            logger.error(f"Error querying postal agencies: {e!s}")
             return {"type": "FeatureCollection", "features": []} 
         finally:
             self.db.close()

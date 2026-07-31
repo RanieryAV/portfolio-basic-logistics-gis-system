@@ -1,8 +1,8 @@
+import os
+
 import mlflow
 import mlflow.pyfunc
 from mlflow import MlflowClient
-import os
-
 
 # Set the tracking URI for MLFlow
 mlflow.set_tracking_uri(os.getenv('MLFLOW_URI'))

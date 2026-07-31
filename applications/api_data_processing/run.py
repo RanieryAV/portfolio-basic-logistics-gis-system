@@ -1,17 +1,19 @@
 import os
-from dotenv import load_dotenv
+
 import uvicorn
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 # Import routers with fallback for different execution contexts
 try:
-	from src.controllers import collect_data_controller
-	from src.controllers import process_data_controller
+	from src.controllers import collect_data_controller, process_data_controller
 except ImportError:
 	try:
-		from applications.api_data_processing.src.controllers import collect_data_controller
-		from applications.api_data_processing.src.controllers import process_data_controller
+		from applications.api_data_processing.src.controllers import (
+			collect_data_controller,
+			process_data_controller,
+		)
 	except ImportError as import_error:
 		raise ImportError(
 			"Unable to import api_data_processing controllers from 'src.controllers' "

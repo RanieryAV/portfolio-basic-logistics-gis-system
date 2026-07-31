@@ -1,40 +1,14 @@
-import os
-import traceback
 import logging
-import math
-import subprocess
-import socket
-import csv
-import gzip
-from typing import Optional
-from functools import reduce
-import gc
 
-import json
-import re
-from datetime import datetime
-
-from flask import Blueprint, request, jsonify, make_response
-from flasgger import swag_from
-from os import path
 from dotenv import load_dotenv
-from pathlib import Path
-from pyspark.sql import SparkSession, DataFrame
-from pyspark.sql import functions as F
-from pyspark.sql.types import (
-    ArrayType, StructType, StructField, DoubleType, StringType, LongType, StructType, TimestampType, IntegerType
-)
-from pyspark.sql.window import Window
-from typing import Any, Tuple, List, Dict, Optional
+from flask import Blueprint
 
 # Image libs (Pillow). Shapely optional but recommended.
 try:
-    from shapely import wkt as shapely_wkt
     SHAPELY_AVAILABLE = True
 except Exception:
     SHAPELY_AVAILABLE = False
 
-from PIL import Image, ImageDraw
 
 preprocess_data_bp = Blueprint('process_data_bp', __name__)
 

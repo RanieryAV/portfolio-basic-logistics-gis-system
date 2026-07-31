@@ -1,0 +1,13 @@
+# moon.yml (at the root of the repo)
+tasks:
+  # Spin up the infrastructure databases/tools
+  infra-up:
+    command: 'docker compose -f docker-compose-infra.yml up -d'
+    
+  # Spin up ALL main applications simultaneously
+  apps-up:
+    command: 'docker compose -f docker-compose-apps.yml up -d --build'
+    
+  # Tear everything down
+  teardown:
+    command: 'docker compose -f docker-compose-apps.yml -f docker-compose-infra.yml down'

@@ -1,0 +1,22 @@
+# applications/api_data_processing/moon.yml
+language: python
+dependsOn:
+  - 'domain'
+  - 'infrastructure'
+
+tasks:
+  # Task for your root-level shell script execution
+  run-sh:
+    command: './scripts/launch_data_processing_api.sh'
+    options:
+      runFromWorkspaceRoot: true
+  
+  # Task for direct local python execution
+  run-local:
+    command: 'python run.py'
+    
+  # Task for Docker Compose (updated to match your workflow)
+  docker-compose-up:
+    command: 'docker compose -f docker-compose-apps.yml up -d --build data_processing_fastapi_app'
+    options:
+      runFromWorkspaceRoot: true

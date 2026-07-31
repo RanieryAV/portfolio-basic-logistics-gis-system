@@ -1,9 +1,12 @@
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
-from typing import Optional
 
 # IMPORT THE SERVICES
-from src.services.collect_data_service import IngestPostalAgenciesService, QueryPostalAgenciesService
+from src.services.collect_data_service import (
+    IngestPostalAgenciesService,
+    QueryPostalAgenciesService,
+)
 
 # Router replacing the 'Namespace' from flask_restx
 router = APIRouter(prefix="/collect", tags=["Data Collection"])
@@ -15,7 +18,7 @@ class GeoDataPayload(BaseModel):
     """Validation model for the input of geographical data"""
     source_name: str = Field(..., description="Name of the data source (ex: 'truck_fleet')")
     wkt_geometry: str = Field(..., description="Geometry in WKT format (Well-Known Text)")
-    timestamp: Optional[str] = Field(None, description="Date and time of the data collection ISO 8601")
+    timestamp: str | None = Field(None, description="Date and time of the data collection ISO 8601")
 
 # ---------------------------------------------------------
 # Controller Class
@@ -43,7 +46,7 @@ class CollectDataController:
         except ValueError as ve:
             # Validation or business errors
             raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
+        except Exception:
             # Generic server errors
             raise HTTPException(status_code=500, detail="Internal error during data collection.")
 
@@ -69,7 +72,7 @@ class CollectDataController:
             query_service = QueryPostalAgenciesService()
             result = query_service.execute()
             return result
-        except Exception as e:
+        except Exception:
             # Return empty FeatureCollection to gracefully handle failures (non-destructive)
             return {"type": "FeatureCollection", "features": []}
 

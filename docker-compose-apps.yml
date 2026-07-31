@@ -3,8 +3,8 @@ services:
   frontend_demo:
     container_name: frontend-demo-app
     build:
-      context: ./applications/frontend_demo
-      dockerfile: dockerfile.frontend_demo
+      context: ./
+      dockerfile: ./applications/frontend_demo/dockerfile.frontend_demo
     ports:
     - "${FRONTEND_DEMO_PORT_DOCKER}:${FRONTEND_DEMO_PORT_DOCKER}"
     volumes:

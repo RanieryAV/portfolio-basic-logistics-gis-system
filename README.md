@@ -28,8 +28,10 @@
     ./scripts/create_nextjs_app.sh
     ```
 5. Place general dataset files into `shared/utils/datasets/`:
- - Acess the website [Portal de Dados Abertos - Agências dos Correios nos municípios alagoanos](https://dados.gov.br/dados/conjuntos-dados/agencias-dos-correios-nos-municipios-alagoanos), and download the `correios_al.geojson.json` file by clicking on the button named "Acessar o recurso".
- - Then, place the `correios_al.geojson.json` file in the `shared/utils/datasets/` directory.
+ - Access the following websites:
+    - [Portal de Dados Abertos - Agências dos Correios nos municípios alagoanos (click here)](https://dados.gov.br/dados/conjuntos-dados/agencias-dos-correios-nos-municipios-alagoanos) , click the **`Recursos`** dropdown menu to reveal the available resource sections and download the **`correios_al.geojson.json`** file by clicking on the button named **`Acessar o recurso`** right under the section **`[GeoJSON]  gências dos Correios`**.
+    - [Portal de Dados Abertos - Bairros de Alagoas (click here)](https://dados.gov.br/dados/conjuntos-dados/bairros-de-alagoas1) , click the **`Recursos`** dropdown menu to reveal the available resource sections and download the **`bairros.geojson.json`** file by clicking on the button named **`Acessar o recurso`** right under the section **`[GeoJSON]  Bairros de Alagoas Censo IBGE 2022`**.
+ - Then, place the `correios_al.geojson.json` and `bairros.geojson.json` files in the `shared/utils/datasets/` directory.
 6. Run the `docker-compose-infra.yml` file to start the necessary infrastructure services.
     ```sh
     docker compose -f docker-compose-infra.yml up -d --build

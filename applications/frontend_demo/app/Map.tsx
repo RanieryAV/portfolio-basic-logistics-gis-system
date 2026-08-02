@@ -5,7 +5,7 @@ import { MapContainer, TileLayer, GeoJSON, LayersControl } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
-export default function Map({ geoData }: { geoData: any }) {
+export default function Map({ geoData, neighborhoodData }: { geoData: any , neighborhoodData?: any }) {
   useEffect(() => {
     // This ensures Leaflet only tries to change the icons when the browser is fully loaded,
     // avoiding crashes during startup.
@@ -44,6 +44,22 @@ export default function Map({ geoData }: { geoData: any }) {
     }
   };
 
+  const onEachNeighborhood = (feature: any, layer: L.Layer) => {
+    if (feature.properties) {
+      const name = feature.properties.NM_BAIRRO || 'Unknown';
+      const city = feature.properties.NM_MUN || 'Unknown';
+      const state = feature.properties.NM_UF || 'Unknown';
+      const area = feature.properties.AREA_KM2 || 0;
+      layer.bindPopup(`
+        <div style="font-family: Arial, sans-serif;">
+          <h4 style="margin: 0; color: #1890ff;">${name}</h4>
+          <p style="margin: 4px 0 2px 0; font-size: 13px;"><strong>City/State:</strong> ${city} - ${state}</p>
+          <p style="margin: 2px 0; font-size: 13px;"><strong>Area:</strong> ${Number(area).toFixed(2)} km²</p>
+        </div>
+      `);
+    }
+  };
+
   return (
     <MapContainer
       center={[-9.645500, -35.734500]}
@@ -56,6 +72,19 @@ export default function Map({ geoData }: { geoData: any }) {
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         </LayersControl.BaseLayer>
 
+        {/* Overlay: Neighborhood Polygons */}
+        {neighborhoodData && (
+          <LayersControl.Overlay checked name="Neighborhoods (Polygons)">
+            <GeoJSON 
+               key={`neigh-${JSON.stringify(neighborhoodData).substring(0,20)}`} 
+               data={neighborhoodData} 
+               onEachFeature={onEachNeighborhood}
+               style={{ color: '#1890ff', weight: 2, fillOpacity: 0.15 }}
+            />
+          </LayersControl.Overlay>
+        )}
+
+        
         {/* Overlay: The togglable points from PostGIS */}
         {geoData && (
           <LayersControl.Overlay checked name="Postal Agencies (PostGIS)">

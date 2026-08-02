@@ -4,6 +4,7 @@ from typing import Optional
 
 # IMPORT THE SERVICES
 from src.services.collect_data_service import IngestPostalAgenciesService, QueryPostalAgenciesService
+from src.services.collect_data_service import IngestNeighborhoodsService, QueryNeighborhoodsService
 
 # Router replacing the 'Namespace' from flask_restx
 router = APIRouter(prefix="/collect", tags=["Data Collection"])
@@ -73,6 +74,22 @@ class CollectDataController:
             # Return empty FeatureCollection to gracefully handle failures (non-destructive)
             return {"type": "FeatureCollection", "features": []}
 
+    async def ingest_neighborhoods(self):
+        """Ingests Neighborhoods (MultiPolygons) from a JSON payload into PostGIS."""
+        try:
+            service = IngestNeighborhoodsService()
+            return service.execute()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def get_neighborhoods(self):
+        """Fetches Neighborhoods from PostGIS as GeoJSON."""
+        try:
+            service = QueryNeighborhoodsService()
+            return service.execute()
+        except Exception as e:
+            return {"type": "FeatureCollection", "features": []}
+
 # ---------------------------------------------------------
 # Router Mappings
 # ---------------------------------------------------------
@@ -99,4 +116,18 @@ router.add_api_route(
     controller_instance.get_postal_agencies_from_db, 
     methods=["GET"], 
     summary="Get Postal Agencies as GeoJSON"
+)
+
+router.add_api_route(
+    "/ingest-neighborhoods-file", 
+    controller_instance.ingest_neighborhoods, 
+    methods=["POST"], 
+    summary="Ingest Neighborhoods GeoJSON (MultiPolygon)"
+)
+
+router.add_api_route(
+    "/get-neighborhoods-from-db", 
+    controller_instance.get_neighborhoods, 
+    methods=["GET"], 
+    summary="Get Neighborhoods as GeoJSON"
 )

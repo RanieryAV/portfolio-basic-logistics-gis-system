@@ -1,12 +1,11 @@
-
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
+from typing import Optional
 
 # IMPORT THE SERVICES
-from src.services.collect_data_service import (
-    IngestPostalAgenciesService,
-    QueryPostalAgenciesService,
-)
+from src.services.collect_data_service import IngestPostalAgenciesService, QueryPostalAgenciesService
+from src.services.collect_data_service import IngestNeighborhoodsService, QueryNeighborhoodsService
+from src.services.collect_data_service import IngestAlagoasStreetsService, QueryAlagoasStreetsService
 
 # Router replacing the 'Namespace' from flask_restx
 router = APIRouter(prefix="/collect", tags=["Data Collection"])
@@ -18,7 +17,7 @@ class GeoDataPayload(BaseModel):
     """Validation model for the input of geographical data"""
     source_name: str = Field(..., description="Name of the data source (ex: 'truck_fleet')")
     wkt_geometry: str = Field(..., description="Geometry in WKT format (Well-Known Text)")
-    timestamp: str | None = Field(None, description="Date and time of the data collection ISO 8601")
+    timestamp: Optional[str] = Field(None, description="Date and time of the data collection ISO 8601")
 
 # ---------------------------------------------------------
 # Controller Class
@@ -46,7 +45,7 @@ class CollectDataController:
         except ValueError as ve:
             # Validation or business errors
             raise HTTPException(status_code=400, detail=str(ve))
-        except Exception:
+        except Exception as e:
             # Generic server errors
             raise HTTPException(status_code=500, detail="Internal error during data collection.")
 
@@ -72,8 +71,45 @@ class CollectDataController:
             query_service = QueryPostalAgenciesService()
             result = query_service.execute()
             return result
-        except Exception:
+        except Exception as e:
             # Return empty FeatureCollection to gracefully handle failures (non-destructive)
+            return {"type": "FeatureCollection", "features": []}
+
+    async def ingest_neighborhoods(self):
+        """Ingests Neighborhoods (MultiPolygons) from a JSON payload into PostGIS."""
+        try:
+            service = IngestNeighborhoodsService()
+            return service.execute()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def get_neighborhoods(self):
+        """Fetches Neighborhoods from PostGIS as GeoJSON."""
+        try:
+            service = QueryNeighborhoodsService()
+            return service.execute()
+        except Exception as e:
+            return {"type": "FeatureCollection", "features": []}
+
+    async def ingest_alagoas_streets(self):
+        """
+        Instantiates the service that reads 'alagoas-streets.geojson.json' 
+        and inserts the street networks into PostGIS.
+        """
+        try:
+            ingest_service = IngestAlagoasStreetsService()
+            return ingest_service.execute()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def get_alagoas_streets_from_db(self):
+        """
+        Fetches all streets from PostGIS and returns them as a GeoJSON.
+        """
+        try:
+            query_service = QueryAlagoasStreetsService()
+            return query_service.execute()
+        except Exception as e:
             return {"type": "FeatureCollection", "features": []}
 
 # ---------------------------------------------------------
@@ -102,4 +138,32 @@ router.add_api_route(
     controller_instance.get_postal_agencies_from_db, 
     methods=["GET"], 
     summary="Get Postal Agencies as GeoJSON"
+)
+
+router.add_api_route(
+    "/ingest-neighborhoods-file", 
+    controller_instance.ingest_neighborhoods, 
+    methods=["POST"], 
+    summary="Ingest Neighborhoods GeoJSON (MultiPolygon)"
+)
+
+router.add_api_route(
+    "/get-neighborhoods-from-db", 
+    controller_instance.get_neighborhoods, 
+    methods=["GET"], 
+    summary="Get Neighborhoods as GeoJSON"
+)
+
+router.add_api_route(
+    "/ingest-alagoas-streets-file", 
+    controller_instance.ingest_alagoas_streets, 
+    methods=["POST"], 
+    summary="Ingest Alagoas Streets GeoJSON"
+)
+
+router.add_api_route(
+    "/get-alagoas-streets-from-db", 
+    controller_instance.get_alagoas_streets_from_db, 
+    methods=["GET"], 
+    summary="Get Alagoas Streets as GeoJSON"
 )

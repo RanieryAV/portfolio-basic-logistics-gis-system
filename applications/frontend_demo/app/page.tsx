@@ -18,8 +18,8 @@ type GeoData = {
     type: string;
     features: Array<{
         type: string;
-        properties: { name: string };
-        geometry: { type: string; coordinates: number[] };
+        properties: { name: string; [key: string]: any };
+        geometry: { type: string; coordinates: any };
     }>;
 };
 
@@ -43,8 +43,11 @@ const initialEdges: Edge[] = [
 export default function Home() {
     const [apiStatus, setApiStatus] = useState('Checking...');
     const [geoData, setGeoData] = useState<GeoData | null>(null);
+    const [neighborhoodData, setNeighborhoodData] = useState<GeoData | null>(null); // New state for Neighborhoods
+    const [streetsData, setStreetsData] = useState<GeoData | null>(null); // New state for Alagoas Streets
 
     const fetchMapData = () => {
+        // 1. Fetch Postal Agencies
         fetch(`${API_BASE_URL}/api/v1/collect/get-postal-agencies-from-db`)
             .then(res => {
                 if (!res.ok) throw new Error('Failed to fetch map data');
@@ -58,6 +61,31 @@ export default function Home() {
             })
             .catch(err => {
                 console.error("Could not load map data from DB, keeping fallback.", err);
+            });
+
+        // 2. Fetch Neighborhoods
+        fetch(`${API_BASE_URL}/api/v1/collect/get-neighborhoods-from-db`)
+            .then(res => res.ok ? res.json() : null)
+            .then(data => {
+                if (data && data.features && data.features.length > 0) {
+                    setNeighborhoodData(data);
+                }
+            })
+            .catch(err => console.error("Could not load neighborhoods.", err));
+
+        // Fetch Alagoas Streets dataset from PostGIS
+        fetch(`${API_BASE_URL}/api/v1/collect/get-alagoas-streets-from-db`)
+            .then(res => {
+                if (!res.ok) throw new Error('Failed to fetch map data');
+                return res.json();
+            })
+            .then(data => {
+                if (data && data.features && data.features.length > 0) {
+                    setStreetsData(data);
+                }
+            })
+            .catch(err => {
+                console.error("Could not load map data from DB.", err);
             });
     };
 
@@ -78,6 +106,7 @@ export default function Home() {
                 message.warning('FastAPI is offline. Running fallback data on the map.');
             });
 
+        // Set the default geo data for the map
         setGeoData({
             type: 'FeatureCollection',
             features: [
@@ -108,27 +137,36 @@ export default function Home() {
                                         valueStyle={{ fontSize: 16, lineHeight: 1.2 }}
                                     />
                                 </Col>
-                               <Col>
+                                <Col>
                                     <Button
                                         type="primary"
                                         onClick={() => {
-                                            message.loading({ content: 'Ingesting Postal Agencies...', key: 'ingest' });
-                                            // Dynamic route injected here as well
-                                            fetch(`${API_BASE_URL}/api/v1/collect/ingest-postal-agencies-file`, { method: 'POST' })
-                                                .then(async (res) => {
-                                                    if (!res.ok) throw new Error('API Error');
-                                                    return res.json();
-                                                })
-                                                .then((data) => {
-                                                    message.success({ content: data.message || 'Ingestion successful!', key: 'ingest', duration: 3 });
-                                                    fetchMapData(); // Refresh the map with newly ingested data right after a successful POST
+                                            message.loading({ content: 'Ingesting & Loading All Data...', key: 'ingest' });
+                                            
+                                            // 1. Trigger the postal agencies ingestion process (reads local file in backend)
+                                            const ingestAgencies = fetch(`${API_BASE_URL}/api/v1/collect/ingest-postal-agencies-file`, { method: 'POST' });
+                                            
+                                            // 2. Fetch Neighborhoods GeoJSON from frontend public folder and POST to backend
+                                            const ingestNeighborhoods = fetch(`${API_BASE_URL}/api/v1/collect/ingest-neighborhoods-file`, { method: 'POST' });
+
+                                            // 3. Fetch Alagoas Streets GeoJSON from frontend public folder and POST to backend
+                                            const ingestStreets = fetch(`${API_BASE_URL}/api/v1/collect/ingest-alagoas-streets-file`, { method: 'POST' });
+
+                                            // Wait for all ingestions to finish, then fetch the map data
+                                            Promise.all([ingestAgencies, ingestNeighborhoods, ingestStreets])
+                                                .then(async () => {
+                                                    message.success({ content: 'Ingestion triggered, loading map data...', key: 'ingest', duration: 3 });
+                                                    // Refresh the map with ALL newly ingested datasets
+                                                    fetchMapData(); 
                                                 })
                                                 .catch(() => {
                                                     message.error({ content: 'Failed to ingest data. Check API logs.', key: 'ingest', duration: 3 });
+                                                    // Still attempt to fetch in case data already exists in the DB
+                                                    fetchMapData();
                                                 });
                                         }}
                                     >
-                                        Simulate Postal Agencies Ingestion
+                                        Simulate & Load All Data
                                     </Button>
                                 </Col>
                             </Row>
@@ -138,7 +176,8 @@ export default function Home() {
                      {/* Spatial Map (Leaflet + PostGIS) - Uses 100% of the screen*/}
                     <Col span={24}>
                         <Card title="Spatial Map (Leaflet + PostGIS)" bordered={false} style={{ height: '100%' }}>
-                            <DynamicMap geoData={geoData} />
+                            {/* Pass both geoData (Agencies) and neighborhoodData (Polygons) to the Map */}
+                            <DynamicMap geoData={geoData} neighborhoodData={neighborhoodData} streetsData={streetsData} />
                         </Card>
                     </Col>
 

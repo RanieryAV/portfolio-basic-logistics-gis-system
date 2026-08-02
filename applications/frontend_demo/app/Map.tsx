@@ -5,7 +5,7 @@ import { MapContainer, TileLayer, GeoJSON, LayersControl } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
-export default function Map({ geoData }: { geoData: any }) {
+export default function Map({ geoData, neighborhoodData, streetsData }: { geoData: any; neighborhoodData?: any; streetsData?: any }) {
   useEffect(() => {
     // This ensures Leaflet only tries to change the icons when the browser is fully loaded,
     // avoiding crashes during startup.
@@ -19,7 +19,7 @@ export default function Map({ geoData }: { geoData: any }) {
     }
   }, []);
 
-  const onEachFeature = (feature: any, layer: L.Layer) => {
+  const onEachPostalAgency = (feature: any, layer: L.Layer) => {
     if (feature.properties) {
       // Destructure handling both Portuguese (original geojson) and English (from DB query) property names
       const { Nome, Name, Endereço, Address, Cidade, City, CEP, state, Telefone, Phone } = feature.properties;
@@ -44,6 +44,42 @@ export default function Map({ geoData }: { geoData: any }) {
     }
   };
 
+  const onEachNeighborhood = (feature: any, layer: L.Layer) => {
+    if (feature.properties) {
+      const name = feature.properties.NM_BAIRRO || 'Unknown';
+      const city = feature.properties.NM_MUN || 'Unknown';
+      const state = feature.properties.NM_UF || 'Unknown';
+      const area = feature.properties.AREA_KM2 || 0;
+      layer.bindPopup(`
+        <div style="font-family: Arial, sans-serif;">
+          <h4 style="margin: 0; color: #1890ff;">${name}</h4>
+          <p style="margin: 4px 0 2px 0; font-size: 13px;"><strong>City/State:</strong> ${city} - ${state}</p>
+          <p style="margin: 2px 0; font-size: 13px;"><strong>Area:</strong> ${Number(area).toFixed(2)} km²</p>
+        </div>
+      `);
+    }
+  };
+
+  const onEachStreet = (feature: any, layer: L.Layer) => {
+    if (feature.properties) {
+      const ref = feature.properties.ref || 'N/A';
+      const postalCod = feature.properties.postal_cod || 'N/A';
+      const name = feature.properties.name || 'Unknown Street';
+      const city = feature.properties.NM_MUN || 'Unknown';
+      const neighborhood = feature.properties.Bairro || 'Unknown';
+
+      layer.bindPopup(`
+        <div style="font-family: Arial, sans-serif; min-width: 200px;">
+          <h4 style="margin: 0; color: #595959;">${name}</h4>
+          <p style="margin: 4px 0 2px 0; font-size: 13px;"><strong>Reference:</strong> ${ref}</p>
+          <p style="margin: 2px 0; font-size: 13px;"><strong>Postal Code:</strong> ${postalCod}</p>
+          <p style="margin: 2px 0; font-size: 13px;"><strong>City:</strong> ${city}</p>
+          <p style="margin: 2px 0; font-size: 13px;"><strong>Neighborhood:</strong> ${neighborhood}</p>
+        </div>
+      `);
+    }
+  };
+
   return (
     <MapContainer
       center={[-9.645500, -35.734500]}
@@ -56,10 +92,34 @@ export default function Map({ geoData }: { geoData: any }) {
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         </LayersControl.BaseLayer>
 
+        {/* Overlay: Neighborhood Polygons */}
+        {neighborhoodData && (
+          <LayersControl.Overlay checked name="Neighborhoods (MultiPolygon)">
+            <GeoJSON 
+               key={`neigh-${JSON.stringify(neighborhoodData).substring(0,20)}`} 
+               data={neighborhoodData} 
+               onEachFeature={onEachNeighborhood}
+               style={{ color: '#1890ff', weight: 2, fillOpacity: 0.15 }}
+            />
+          </LayersControl.Overlay>
+        )}
+
+        {/* Overlay: Streets dataset from PostGIS */}
+        {streetsData && (
+          <LayersControl.Overlay checked name="Alagoas Streets (MultiLineString)">
+            <GeoJSON
+              key={`streets-${JSON.stringify(streetsData).substring(0, 20)}`}
+              data={streetsData}
+              onEachFeature={onEachStreet}
+              style={{ color: '#8c8c8c', weight: 1, fillOpacity: 0 }}
+            />
+          </LayersControl.Overlay>
+        )}
+        
         {/* Overlay: The togglable points from PostGIS */}
         {geoData && (
-          <LayersControl.Overlay checked name="Postal Agencies (PostGIS)">
-            <GeoJSON key={JSON.stringify(geoData)} data={geoData} onEachFeature={onEachFeature} />
+          <LayersControl.Overlay checked name="Postal Agencies (Point)">
+            <GeoJSON key={JSON.stringify(geoData)} data={geoData} onEachFeature={onEachPostalAgency} />
           </LayersControl.Overlay>
         )}
       </LayersControl>

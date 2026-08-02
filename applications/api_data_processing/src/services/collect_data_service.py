@@ -1,11 +1,13 @@
 import json
-import logging
 import os
-
-from domain.config.database_config import Base, SessionLocal, engine
-from domain.repositories.data_processing.postal_agencies import PostalAgencies
-from sqlalchemy import text
+import logging
+from shapely.geometry import shape
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import text
+from domain.config.database_config import SessionLocal, engine, Base
+from domain.repositories.data_processing.postal_agencies import PostalAgencies
+from domain.repositories.data_processing.neighborhoods import Neighborhoods
+from domain.repositories.data_processing.alagoas_streets import AlagoasStreets
 
 logger = logging.getLogger(__name__)
 
@@ -50,8 +52,8 @@ class IngestPostalAgenciesService:
                     geojson_path = path
                     break
             
-            if not os.path.exists(geojson_path):
-                raise FileNotFoundError(f"GeoJSON file not found at: {geojson_path}")
+            if not geojson_path:
+                raise FileNotFoundError(f"GeoJSON file not found. Searched in: {possible_paths}")
                 
             with open(geojson_path, 'r', encoding='utf-8') as file:
                 geo_data = json.load(file)
@@ -123,10 +125,11 @@ class IngestPostalAgenciesService:
             
         except Exception as e:
             self.db.rollback()
-            logger.error(f"Error ingesting postal agencies: {e!s}")
+            logger.error(f"Error ingesting postal agencies: {str(e)}")
             raise e
         finally:
             self.db.close()
+
 
 class QueryPostalAgenciesService:
     """
@@ -144,6 +147,11 @@ class QueryPostalAgenciesService:
         or the table doesn't exist yet.
         """
         try:
+            # Ensure schema and tables exist before querying to prevent UndefinedTable error on first load
+            self.db.execute(text("CREATE SCHEMA IF NOT EXISTS logistics_gis"))
+            self.db.commit()
+            Base.metadata.create_all(bind=engine)
+
             agencies = self.db.query(PostalAgencies).all()
             features = []
             
@@ -173,7 +181,260 @@ class QueryPostalAgenciesService:
             }
             
         except Exception as e:
-            logger.error(f"Error querying postal agencies: {e!s}")
+            logger.error(f"Error querying postal agencies: {str(e)}")
+            return {"type": "FeatureCollection", "features": []} 
+        finally:
+            self.db.close()
+
+
+class IngestNeighborhoodsService:
+    """
+    Service responsible for reading a local GeoJSON file and ingesting 
+    Neighborhood MultiPolygons into PostGIS.
+    """
+
+    def __init__(self):
+        self.db = SessionLocal()
+
+    def execute(self, batch_size: int = 100):
+        """
+        Ingests GeoJSON file containing MultiPolygons into PostGIS.
+        
+        Args:
+            batch_size (int): The maximum number of records to process in a single bulk UPSERT.
+        """
+        try:
+            self.db.execute(text("CREATE SCHEMA IF NOT EXISTS logistics_gis"))
+            self.db.commit()
+            Base.metadata.create_all(bind=engine)
+            
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            local_root = os.path.abspath(os.path.join(current_dir, "../../../../../"))
+            
+            # Smart path resolution: Docker volumes vs Local execution
+            possible_paths = [
+                "/app/datasets/bairros.geojson",                                            # Docker volume mapping
+                "/app/datasets/bairros.geojson.json",                                       # Docker volume mapping (Fallback)
+                os.path.join(local_root, "shared", "utils", "datasets", "bairros.geojson"), # Local execution
+                os.path.join(local_root, "shared", "utils", "datasets", "bairros.geojson.json") # Local execution (Fallback)
+            ]
+            
+            geojson_path = None
+            for path in possible_paths:
+                if os.path.exists(path):
+                    geojson_path = path
+                    break
+            
+            if not geojson_path:
+                raise FileNotFoundError(f"GeoJSON file not found. Searched in: {possible_paths}")
+                
+            with open(geojson_path, 'r', encoding='utf-8') as file:
+                geo_data = json.load(file)
+            
+            features = geo_data.get('features', [])
+            total_processed = 0
+            batch_data = []
+            
+            stmt = insert(Neighborhoods)
+            upsert_stmt = stmt.on_conflict_do_update(
+                index_elements=['code'],
+                set_={
+                    'name': stmt.excluded.name,
+                    'city': stmt.excluded.city,
+                    'state': stmt.excluded.state,
+                    'area_km2': stmt.excluded.area_km2,
+                    'geom': stmt.excluded.geom
+                }
+            )
+            
+            for feature in features:
+                props = feature.get('properties', {})
+                geom_dict = feature.get('geometry', {})
+                
+                # Convert GeoJSON geometry dict to WKT using Shapely
+                wkt_geom = shape(geom_dict).wkt
+                
+                batch_data.append({
+                    'code': props.get('CD_BAIRRO'),
+                    'name': props.get('NM_BAIRRO'),
+                    'city': props.get('NM_MUN'),
+                    'state': props.get('NM_UF'),
+                    'area_km2': props.get('AREA_KM2'),
+                    'geom': f"SRID=4326;{wkt_geom}"
+                })
+                
+                if len(batch_data) >= batch_size:
+                    self.db.execute(upsert_stmt, batch_data)
+                    total_processed += len(batch_data)
+                    batch_data.clear() # Empty the batch list for the next iteration
+                
+            if batch_data:
+                self.db.execute(upsert_stmt, batch_data)
+                total_processed += len(batch_data)
+                batch_data.clear()
+                
+            self.db.commit()
+            
+            logger.info(f"Successfully processed {total_processed} neighborhoods in batches of {batch_size}.")    
+            return {
+                "status": "success", 
+                "message": f"{total_processed} Neighborhoods processed in batches of {batch_size}."
+            }
+            
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Error ingesting neighborhoods: {str(e)}")
+            raise e
+        finally:
+            self.db.close()
+
+
+class QueryNeighborhoodsService:
+    def __init__(self):
+        self.db = SessionLocal()
+
+    def execute(self):
+        """Queries the database and returns a GeoJSON FeatureCollection."""
+        try:
+            # Ensure schema and tables exist before querying to prevent UndefinedTable error on first load
+            self.db.execute(text("CREATE SCHEMA IF NOT EXISTS logistics_gis"))
+            self.db.commit()
+            Base.metadata.create_all(bind=engine)
+
+            neighborhoods = self.db.query(Neighborhoods).all()
+            features = [n.to_dict() for n in neighborhoods]
+            return {"type": "FeatureCollection", "features": features}
+        except Exception as e:
+            logger.error(f"Error querying neighborhoods: {str(e)}")
+            return {"type": "FeatureCollection", "features": []} 
+        finally:
+            self.db.close()
+
+class IngestAlagoasStreetsService:
+    """
+    Service responsible for reading the 'alagoas-streets' GeoJSON file 
+    and ingesting its street layouts into PostGIS.
+    """
+    def __init__(self):
+        self.db = SessionLocal()
+
+    def execute(self, batch_size: int = 100):
+        try:
+            self.db.execute(text("CREATE SCHEMA IF NOT EXISTS logistics_gis"))
+            self.db.commit()
+            
+            # Security: Create SQLAlchemy tables in PostGIS if they don't exist yet
+            Base.metadata.create_all(bind=engine)
+            
+            # Prevent infinite duplication on multiple "Simulate" clicks since we lack a unique natural key
+            self.db.query(AlagoasStreets).delete()
+            self.db.commit()
+            
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            local_root = os.path.abspath(os.path.join(current_dir, "../../../../../"))
+            
+            # Smart path resolution for the requested file
+            possible_paths = [
+                "/app/datasets/arruamento-al-osm.geojson.json",
+                "/app/datasets/arruamento-al-osm.geojson",
+                os.path.join(local_root, "shared", "utils", "datasets", "arruamento-al-osm.geojson.json"),
+                os.path.join(local_root, "shared", "utils", "datasets", "arruamento-al-osm.geojson")
+            ]
+            
+            geojson_path = None
+            for path in possible_paths:
+                if os.path.exists(path):
+                    geojson_path = path
+                    break
+            
+            if not geojson_path:
+                raise FileNotFoundError(f"GeoJSON file not found. Searched in: {possible_paths}")
+                
+            with open(geojson_path, 'r', encoding='utf-8') as file:
+                geo_data = json.load(file)
+                
+            features = geo_data.get('features', [])
+            total_processed = 0
+            batch_data = []
+            
+            stmt = insert(AlagoasStreets)
+            
+            for feature in features:
+                props = feature.get('properties', {})
+                geom_dict = feature.get('geometry', {})
+                
+                # Protect against null geometries
+                if not geom_dict:
+                    continue
+                
+                # Convert GeoJSON geometry dict to WKT using Shapely
+                try:
+                    wkt_geom = shape(geom_dict).wkt
+                except Exception as ex:
+                    logger.warning(f"Skipping invalid geometry: {ex}")
+                    continue
+                
+                # Append the dictionary matching the SQLAlchemy columns
+                batch_data.append({
+                    'ref': props.get('ref'),
+                    'postal_cod': props.get('postal_cod'),
+                    'name': props.get('name'),
+                    'nm_mun': props.get('NM_MUN'),
+                    'bairro': props.get('Bairro'),
+                    'geom': f"SRID=4326;{wkt_geom}"
+                })
+                
+                if len(batch_data) >= batch_size:
+                    self.db.execute(stmt, batch_data)
+                    total_processed += len(batch_data)
+                    batch_data.clear()
+            
+            if batch_data:
+                self.db.execute(stmt, batch_data)
+                total_processed += len(batch_data)
+                batch_data.clear()
+                
+            self.db.commit()
+            
+            logger.info(f"Successfully processed {total_processed} streets in batches of {batch_size}.")
+            
+            return {
+                "status": "success", 
+                "message": f"{total_processed} Alagoas Streets processed via GeoJSON in batches of {batch_size}."
+            }
+            
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Error ingesting streets: {str(e)}")
+            raise e
+        finally:
+            self.db.close()
+
+
+class QueryAlagoasStreetsService:
+    """
+    Service responsible for querying the PostGIS database for all saved
+    streets and returning them formatted as a GeoJSON FeatureCollection.
+    """
+    def __init__(self):
+        self.db = SessionLocal()
+
+    def execute(self):
+        try:
+            self.db.execute(text("CREATE SCHEMA IF NOT EXISTS logistics_gis"))
+            self.db.commit()
+            Base.metadata.create_all(bind=engine)
+
+            streets = self.db.query(AlagoasStreets).all()
+            features = [a.to_dict() for a in streets]
+            
+            return {
+                "type": "FeatureCollection",
+                "features": features
+            }
+            
+        except Exception as e:
+            logger.error(f"Error querying streets: {str(e)}")
             return {"type": "FeatureCollection", "features": []} 
         finally:
             self.db.close()

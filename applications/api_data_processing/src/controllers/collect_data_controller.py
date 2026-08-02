@@ -5,6 +5,7 @@ from typing import Optional
 # IMPORT THE SERVICES
 from src.services.collect_data_service import IngestPostalAgenciesService, QueryPostalAgenciesService
 from src.services.collect_data_service import IngestNeighborhoodsService, QueryNeighborhoodsService
+from src.services.collect_data_service import IngestAlagoasStreetsService, QueryAlagoasStreetsService
 
 # Router replacing the 'Namespace' from flask_restx
 router = APIRouter(prefix="/collect", tags=["Data Collection"])
@@ -90,6 +91,27 @@ class CollectDataController:
         except Exception as e:
             return {"type": "FeatureCollection", "features": []}
 
+    async def ingest_alagoas_streets(self):
+        """
+        Instantiates the service that reads 'alagoas-streets.geojson.json' 
+        and inserts the street networks into PostGIS.
+        """
+        try:
+            ingest_service = IngestAlagoasStreetsService()
+            return ingest_service.execute()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def get_alagoas_streets_from_db(self):
+        """
+        Fetches all streets from PostGIS and returns them as a GeoJSON.
+        """
+        try:
+            query_service = QueryAlagoasStreetsService()
+            return query_service.execute()
+        except Exception as e:
+            return {"type": "FeatureCollection", "features": []}
+
 # ---------------------------------------------------------
 # Router Mappings
 # ---------------------------------------------------------
@@ -130,4 +152,18 @@ router.add_api_route(
     controller_instance.get_neighborhoods, 
     methods=["GET"], 
     summary="Get Neighborhoods as GeoJSON"
+)
+
+router.add_api_route(
+    "/ingest-alagoas-streets-file", 
+    controller_instance.ingest_alagoas_streets, 
+    methods=["POST"], 
+    summary="Ingest Alagoas Streets GeoJSON"
+)
+
+router.add_api_route(
+    "/get-alagoas-streets-from-db", 
+    controller_instance.get_alagoas_streets_from_db, 
+    methods=["GET"], 
+    summary="Get Alagoas Streets as GeoJSON"
 )

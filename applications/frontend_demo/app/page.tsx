@@ -44,6 +44,7 @@ export default function Home() {
     const [apiStatus, setApiStatus] = useState('Checking...');
     const [geoData, setGeoData] = useState<GeoData | null>(null);
     const [neighborhoodData, setNeighborhoodData] = useState<GeoData | null>(null); // New state for Neighborhoods
+    const [streetsData, setStreetsData] = useState<GeoData | null>(null); // New state for Alagoas Streets
 
     const fetchMapData = () => {
         // 1. Fetch Postal Agencies
@@ -71,6 +72,21 @@ export default function Home() {
                 }
             })
             .catch(err => console.error("Could not load neighborhoods.", err));
+
+        // Fetch Alagoas Streets dataset from PostGIS
+        fetch(`${API_BASE_URL}/api/v1/collect/get-alagoas-streets-from-db`)
+            .then(res => {
+                if (!res.ok) throw new Error('Failed to fetch map data');
+                return res.json();
+            })
+            .then(data => {
+                if (data && data.features && data.features.length > 0) {
+                    setStreetsData(data);
+                }
+            })
+            .catch(err => {
+                console.error("Could not load map data from DB.", err);
+            });
     };
 
     useEffect(() => {
@@ -90,6 +106,7 @@ export default function Home() {
                 message.warning('FastAPI is offline. Running fallback data on the map.');
             });
 
+        // Set the default geo data for the map
         setGeoData({
             type: 'FeatureCollection',
             features: [
@@ -132,11 +149,14 @@ export default function Home() {
                                             // 2. Fetch Neighborhoods GeoJSON from frontend public folder and POST to backend
                                             const ingestNeighborhoods = fetch(`${API_BASE_URL}/api/v1/collect/ingest-neighborhoods-file`, { method: 'POST' });
 
-                                            // Wait for both ingestions to finish, then fetch the map data
-                                            Promise.all([ingestAgencies, ingestNeighborhoods])
+                                            // 3. Fetch Alagoas Streets GeoJSON from frontend public folder and POST to backend
+                                            const ingestStreets = fetch(`${API_BASE_URL}/api/v1/collect/ingest-alagoas-streets-file`, { method: 'POST' });
+
+                                            // Wait for all ingestions to finish, then fetch the map data
+                                            Promise.all([ingestAgencies, ingestNeighborhoods, ingestStreets])
                                                 .then(async () => {
                                                     message.success({ content: 'Ingestion triggered, loading map data...', key: 'ingest', duration: 3 });
-                                                    // Refresh the map with BOTH newly ingested datasets
+                                                    // Refresh the map with ALL newly ingested datasets
                                                     fetchMapData(); 
                                                 })
                                                 .catch(() => {
@@ -157,7 +177,7 @@ export default function Home() {
                     <Col span={24}>
                         <Card title="Spatial Map (Leaflet + PostGIS)" bordered={false} style={{ height: '100%' }}>
                             {/* Pass both geoData (Agencies) and neighborhoodData (Polygons) to the Map */}
-                            <DynamicMap geoData={geoData} neighborhoodData={neighborhoodData} />
+                            <DynamicMap geoData={geoData} neighborhoodData={neighborhoodData} streetsData={streetsData} />
                         </Card>
                     </Col>
 

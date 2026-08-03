@@ -9,7 +9,7 @@ numpy==1.26.4
 pandas==1.4.0
 GeoAlchemy2==0.15.2
 shapely==2.0.6
-tensorflow== 2.15.0
+tensorflow== 2.15.1
 folium==0.17.0
 geopy==2.4.1
 haversine==2.8.1

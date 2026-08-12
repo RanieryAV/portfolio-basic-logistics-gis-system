@@ -82,7 +82,7 @@ export default function Map({ geoData, neighborhoodData, streetsData }: { geoDat
 
   return (
     <MapContainer
-      center={[-9.645500, -35.734500]}
+      center={[-3.731862, -38.526669]}
       zoom={10}
       style={{ height: '60vh', width: '100%', borderRadius: '8px', zIndex: 1 }}
     >

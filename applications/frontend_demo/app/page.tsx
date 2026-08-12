@@ -112,8 +112,8 @@ export default function Home() {
             features: [
                 {
                     type: 'Feature',
-                    properties: { name: 'Correios - Superintendência Estadual de Alagoas (SEDE)' },
-                    geometry: { type: 'Point', coordinates: [-35.734500, -9.645500] }
+                    properties: { name: 'Referência geográfica central de Fortaleza - Ceará' },
+                    geometry: { type: 'Point', coordinates: [-38.526669, -3.731862] }
                 }
             ]
         });

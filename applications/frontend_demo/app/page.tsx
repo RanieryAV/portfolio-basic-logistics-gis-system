@@ -9,8 +9,6 @@ import 'reactflow/dist/style.css';
 const { Header, Content } = Layout;
 const { Title } = Typography;
 
-// Reads the port from .env (remember that in Next.js client-side, the variable MUST start with NEXT_PUBLIC_)
-// We add a fallback ('5557') in case the variable is not found during build.
 const API_PORT = process.env.NEXT_PUBLIC_FASTAPI_DATA_PROCESSING_DOCKER || process.env.FASTAPI_DATA_PROCESSING_PORT_DOCKER || '5556';
 const API_BASE_URL = `http://localhost:${API_PORT}`;
 
@@ -23,16 +21,15 @@ type GeoData = {
     }>;
 };
 
-// Dynamic import pointing to the same folder (./Map)
 const DynamicMap = dynamic(() => import('./Map'), {
     ssr: false,
-    loading: () => <Spin tip="Loading Geographic Engine..." style={{ width: '100%', padding: '50px 0' }} />
+    loading: () => <Spin description="Loading Geographic Engine..." style={{ width: '100%', padding: '50px 0' }} />
 });
 
 const initialNodes: Node[] = [
     { id: '1', position: { x: 50, y: 50 }, data: { label: 'PostGIS DB (WKB)' }, type: 'input' },
     { id: '2', position: { x: 50, y: 150 }, data: { label: 'FastAPI (Data Processing)' } },
-    { id: '3', position: { x: 50, y: 250 }, data: { label: 'Leaflet UI (GeoJSON)' }, type: 'output' },
+    { id: '3', position: { x: 50, y: 250 }, data: { label: 'MapLibre UI (GeoJSON)' }, type: 'output' },
 ];
 
 const initialEdges: Edge[] = [
@@ -43,54 +40,36 @@ const initialEdges: Edge[] = [
 export default function Home() {
     const [apiStatus, setApiStatus] = useState('Checking...');
     const [geoData, setGeoData] = useState<GeoData | null>(null);
-    const [neighborhoodData, setNeighborhoodData] = useState<GeoData | null>(null); // New state for Neighborhoods
-    const [streetsData, setStreetsData] = useState<GeoData | null>(null); // New state for Alagoas Streets
+    const [neighborhoodData, setNeighborhoodData] = useState<GeoData | null>(null);
+    const [streetsData, setStreetsData] = useState<GeoData | null>(null);
 
     const fetchMapData = () => {
-        // 1. Fetch Postal Agencies
         fetch(`${API_BASE_URL}/api/v1/collect/get-postal-agencies-from-db`)
             .then(res => {
                 if (!res.ok) throw new Error('Failed to fetch map data');
                 return res.json();
             })
             .then(data => {
-                // Non-destructive fallback: Only update map if DB returned actual features
-                if (data && data.features && data.features.length > 0) {
-                    setGeoData(data);
-                }
+                if (data && data.features && data.features.length > 0) setGeoData(data);
             })
-            .catch(err => {
-                console.error("Could not load map data from DB, keeping fallback.", err);
-            });
+            .catch(err => console.error("Could not load map data from DB, keeping fallback.", err));
 
-        // 2. Fetch Neighborhoods
         fetch(`${API_BASE_URL}/api/v1/collect/get-neighborhoods-from-db`)
             .then(res => res.ok ? res.json() : null)
             .then(data => {
-                if (data && data.features && data.features.length > 0) {
-                    setNeighborhoodData(data);
-                }
+                if (data && data.features && data.features.length > 0) setNeighborhoodData(data);
             })
             .catch(err => console.error("Could not load neighborhoods.", err));
-
-        // Fetch Alagoas Streets dataset from PostGIS
+            
         fetch(`${API_BASE_URL}/api/v1/collect/get-alagoas-streets-from-db`)
-            .then(res => {
-                if (!res.ok) throw new Error('Failed to fetch map data');
-                return res.json();
-            })
+            .then(res => res.ok ? res.json() : null)
             .then(data => {
-                if (data && data.features && data.features.length > 0) {
-                    setStreetsData(data);
-                }
+                if (data && data.features && data.features.length > 0) setStreetsData(data);
             })
-            .catch(err => {
-                console.error("Could not load map data from DB.", err);
-            });
+            .catch(err => console.error("Could not load streets.", err));
     };
 
     useEffect(() => {
-        // Now using the dynamic base URL constructed with the .env port
         fetch(`${API_BASE_URL}/health`)
             .then((res) => {
                 if (!res.ok) throw new Error('Network error');
@@ -99,14 +78,13 @@ export default function Home() {
             .then((data) => {
                 setApiStatus(data.status === 'online' ? 'Online' : 'Offline');
                 message.success('Successfully connected to the FastAPI!');
-                fetchMapData(); // Fetch the DB data automatically if API is online
+                fetchMapData();
             })
             .catch(() => {
                 setApiStatus('Offline');
                 message.warning('FastAPI is offline. Running fallback data on the map.');
             });
 
-        // Set the default geo data for the map
         setGeoData({
             type: 'FeatureCollection',
             features: [
@@ -128,13 +106,13 @@ export default function Home() {
             <Content style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
                 <Row gutter={[24, 24]}>
                     <Col span={24}>
-                        <Card bodyStyle={{ padding: '6px 8px' }}>
+                        <Card styles={{ body: { padding: '6px 8px' } }}>
                             <Row justify="space-between" align="middle" gutter={[12, 12]}>
                                 <Col>
-                                    <Statistic
-                                        title={`API Status (Port: ${API_PORT})`}
-                                        value={apiStatus}
-                                        valueStyle={{ fontSize: 16, lineHeight: 1.2 }}
+                                    <Statistic 
+                                      title={`API Status (Port: ${API_PORT})`} 
+                                      value={apiStatus} 
+                                      styles={{ content: { fontSize: 16, lineHeight: 1.2 } }} 
                                     />
                                 </Col>
                                 <Col>
@@ -143,25 +121,17 @@ export default function Home() {
                                         onClick={() => {
                                             message.loading({ content: 'Ingesting & Loading All Data...', key: 'ingest' });
                                             
-                                            // 1. Trigger the postal agencies ingestion process (reads local file in backend)
                                             const ingestAgencies = fetch(`${API_BASE_URL}/api/v1/collect/ingest-postal-agencies-file`, { method: 'POST' });
-                                            
-                                            // 2. Fetch Neighborhoods GeoJSON from frontend public folder and POST to backend
                                             const ingestNeighborhoods = fetch(`${API_BASE_URL}/api/v1/collect/ingest-neighborhoods-file`, { method: 'POST' });
-
-                                            // 3. Fetch Alagoas Streets GeoJSON from frontend public folder and POST to backend
                                             const ingestStreets = fetch(`${API_BASE_URL}/api/v1/collect/ingest-alagoas-streets-file`, { method: 'POST' });
 
-                                            // Wait for all ingestions to finish, then fetch the map data
                                             Promise.all([ingestAgencies, ingestNeighborhoods, ingestStreets])
                                                 .then(async () => {
                                                     message.success({ content: 'Ingestion triggered, loading map data...', key: 'ingest', duration: 3 });
-                                                    // Refresh the map with ALL newly ingested datasets
                                                     fetchMapData(); 
                                                 })
                                                 .catch(() => {
                                                     message.error({ content: 'Failed to ingest data. Check API logs.', key: 'ingest', duration: 3 });
-                                                    // Still attempt to fetch in case data already exists in the DB
                                                     fetchMapData();
                                                 });
                                         }}
@@ -173,17 +143,14 @@ export default function Home() {
                         </Card>
                     </Col>
 
-                     {/* Spatial Map (Leaflet + PostGIS) - Uses 100% of the screen*/}
                     <Col span={24}>
-                        <Card title="Spatial Map (Leaflet + PostGIS)" bordered={false} style={{ height: '100%' }}>
-                            {/* Pass both geoData (Agencies) and neighborhoodData (Polygons) to the Map */}
+                        <Card title="Spatial Map (MapLibre + PostGIS)" variant="borderless" style={{ height: '100%' }}>
                             <DynamicMap geoData={geoData} neighborhoodData={neighborhoodData} streetsData={streetsData} />
                         </Card>
                     </Col>
 
-                    {/* Data Architecture (React Flow) - Uses 100% of the screen and falls to the next line */}
                     <Col span={24}>
-                        <Card title="Data Architecture (React Flow)" bordered={false} style={{ height: '100%' }}>
+                        <Card title="Data Architecture (React Flow)" variant="borderless" style={{ height: '100%' }}>
                             <div style={{ height: '400px', width: '100%', border: '1px solid #e8e8e8', borderRadius: '8px' }}>
                                 <ReactFlow
                                  defaultNodes={initialNodes} 

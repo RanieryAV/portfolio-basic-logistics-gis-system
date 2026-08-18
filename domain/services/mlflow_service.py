@@ -5,7 +5,8 @@ import os
 
 
 # Set the tracking URI for MLFlow
-mlflow.set_tracking_uri(os.getenv('MLFLOW_URI'))
+mlflow.set_tracking_uri(os.getenv("MLFLOW_URI"))
+
 
 class MLFlowService:
     def set_experiment(experiment_name):
@@ -15,14 +16,12 @@ class MLFlowService:
         """
         mlflow.set_experiment(experiment_name)
 
-
     def start_run(run_name):
         """
         Starts a new run in MLFlow
         :param run_name: the name of the run
         """
         return mlflow.start_run(run_name=run_name)
-
 
     def end_run_if_activated():
         """
@@ -31,14 +30,12 @@ class MLFlowService:
         if mlflow.active_run():
             mlflow.end_run()
 
-
-    def end_run(status='FINISHED'):
+    def end_run(status="FINISHED"):
         """
         Ends the MLFlow run
         :param status: the finish status of the run
         """
         mlflow.end_run(status=status)
-
 
     def log_pyfunc_model(artifact_path, python_model):
         """
@@ -48,7 +45,6 @@ class MLFlowService:
         """
         mlflow.pyfunc.log_model(artifact_path=artifact_path, python_model=python_model)
 
-
     def log_sklearn_model(artifact_path, model):
         """
         Logs a sklearn model to MLFlow
@@ -56,7 +52,6 @@ class MLFlowService:
         :param model: the sklearn model to be saved
         """
         mlflow.sklearn.log_model(model, artifact_path)
-
 
     def log_params(key, value):
         """
@@ -66,7 +61,6 @@ class MLFlowService:
         """
         mlflow.log_param(key, value)
 
-
     def log_metric(key, value):
         """
         Logs a metric to MLFlow
@@ -74,7 +68,6 @@ class MLFlowService:
         :param value: the value of the metric
         """
         mlflow.log_metric(key, value)
-
 
     def load_model_live(model_name):
         """
@@ -86,7 +79,6 @@ class MLFlowService:
         model = mlflow.sklearn.load_model(model_uri)
         return model
 
-
     def load_pyfunc_model_live(model_name):
         """
         Loads a PyFunc model from MLFlow that's in the live stage
@@ -96,7 +88,6 @@ class MLFlowService:
         model_uri = f"models:/{model_name}@live"
         model = mlflow.pyfunc.load_model(model_uri)
         return model
-
 
     def get_model_info(model_name):
         """
@@ -110,12 +101,10 @@ class MLFlowService:
 
     def log_metrics(history):
         """
-            Logs the metrics from the history object to MLFlow
-            :param history: The history object returned by the model.fit method
+        Logs the metrics from the history object to MLFlow
+        :param history: The history object returned by the model.fit method
         """
         for epoch in range(len(history.epoch)):
             for metric, values in history.history.items():
                 # Logs each metric per epoch
                 mlflow.log_metric(metric, values[epoch], step=epoch)
-
-    

@@ -1,9 +1,7 @@
 from fastapi import APIRouter, HTTPException
 import traceback
-from datetime import datetime
 import logging
 from dotenv import load_dotenv
-import tensorflow as tf
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -13,6 +11,7 @@ load_dotenv()
 
 # Router replacing the 'Blueprint' from flask
 router = APIRouter(prefix="/models", tags=["Model Training"])
+
 
 # ---------------------------------------------------------
 # Controller Class
@@ -28,16 +27,19 @@ class TrainingController:
         """
         try:
             print("TO DO: Implement the logic for training the anomaly model.")
-            
+
             return {
                 "status": "success",
-                "message": "TO DO: Implement the logic for training the anomaly model."
+                "message": "TO DO: Implement the logic for training the anomaly model.",
             }
         except ValueError as ve:
             raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
+        except Exception:
             logger.error(f"Error during training: {traceback.format_exc()}")
-            raise HTTPException(status_code=500, detail="Internal error during training.")
+            raise HTTPException(
+                status_code=500, detail="Internal error during training."
+            )
+
 
 # ---------------------------------------------------------
 # Router Mappings
@@ -47,8 +49,8 @@ controller_instance = TrainingController()
 
 # Binding the instance methods to the FastAPI router
 router.add_api_route(
-    "/anomaly", 
-    controller_instance.train_anomaly_model, 
-    methods=["POST"], 
-    summary="Train Anomaly Model"
+    "/anomaly",
+    controller_instance.train_anomaly_model,
+    methods=["POST"],
+    summary="Train Anomaly Model",
 )

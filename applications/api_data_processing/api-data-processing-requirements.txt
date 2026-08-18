@@ -1,5 +1,6 @@
 fastapi==0.104.1
 uvicorn==0.23.2
+pydantic
 SQLAlchemy>=2.0.0
 psycopg2-binary==2.9.9
 flasgger==0.9.7b2

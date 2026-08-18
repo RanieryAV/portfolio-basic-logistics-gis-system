@@ -1,0 +1,6 @@
+infrastructure/database/postgis/data
+node_modules
+npm-debug.log
+.next
+out
+build

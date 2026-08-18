@@ -1,5 +1,7 @@
 [GLOBAL]
 pants_version = "2.20.0"
+# Tells Pants to completely ignore the root requirements file (avoids an 'ambiguity_resolution' problem)
+pants_ignore.add = ["/requirements.txt"]
 backend_packages = [
   "pants.backend.python",
   "pants.backend.experimental.python.lint.ruff.check",   # Ruff Linter

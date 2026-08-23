@@ -26,6 +26,9 @@ export default function Map({ geoData, neighborhoodData, streetsData }: MapProps
     agencies: true,
   });
 
+  // State to track the active base map surface
+  const [baseMap, setBaseMap] = useState<'osm' | 'satellite'>('osm');
+
   // 1. BLIND CDN INJECTION
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -44,6 +47,12 @@ export default function Map({ geoData, neighborhoodData, streetsData }: MapProps
               tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
               tileSize: 256,
               attribution: '&copy; OpenStreetMap contributors'
+            },
+            'satellite-tiles': {
+              type: 'raster',
+              tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+              tileSize: 256,
+              attribution: 'Tiles &copy; Esri'
             }
           },
           layers: [
@@ -52,7 +61,20 @@ export default function Map({ geoData, neighborhoodData, streetsData }: MapProps
               type: 'raster',
               source: 'osm-tiles',
               minzoom: 0,
-              maxzoom: 19
+              maxzoom: 19,
+              layout: {
+                visibility: 'visible'
+              }
+            },
+            {
+              id: 'satellite-tiles-layer',
+              type: 'raster',
+              source: 'satellite-tiles',
+              minzoom: 0,
+              maxzoom: 19,
+              layout: {
+                visibility: 'none'
+              }
             }
           ]
         },
@@ -203,7 +225,7 @@ export default function Map({ geoData, neighborhoodData, streetsData }: MapProps
     }
   }, [mapLoaded, geoData, neighborhoodData, streetsData]);
 
-  // 3. LAYER VISIBILITY CONTROL
+  // 3. VECTOR LAYER VISIBILITY CONTROL
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapLoaded) return;
@@ -220,10 +242,64 @@ export default function Map({ geoData, neighborhoodData, streetsData }: MapProps
     setVisibility('agencies-point', layers.agencies);
   }, [layers, mapLoaded]);
 
+  // 4. BASE MAP VISIBILITY CONTROL
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded) return;
+
+    if (baseMap === 'osm') {
+      map.setLayoutProperty('osm-tiles-layer', 'visibility', 'visible');
+      map.setLayoutProperty('satellite-tiles-layer', 'visibility', 'none');
+    } else {
+      map.setLayoutProperty('osm-tiles-layer', 'visibility', 'none');
+      map.setLayoutProperty('satellite-tiles-layer', 'visibility', 'visible');
+    }
+  }, [baseMap, mapLoaded]);
+
   return (
     <div style={{ position: 'relative', width: '100%', height: '60vh', minHeight: '450px' }}>
       <div ref={mapContainer} style={{ width: '100%', height: '100%', minHeight: '450px', borderRadius: '8px', zIndex: 1 }} />
 
+      {/* BASE MAP CONTROL MENU */}
+      <div style={{
+        position: 'absolute',
+        top: '10px',
+        left: '10px',
+        background: 'rgba(255, 255, 255, 0.95)',
+        padding: '12px',
+        borderRadius: '6px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+        zIndex: 2,
+        fontFamily: 'Arial, sans-serif'
+      }}>
+        <h4 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#333' }}>Base Map</h4>
+
+        <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', cursor: 'pointer' }}>
+          <input 
+            type="radio" 
+            name="basemap" 
+            value="osm" 
+            checked={baseMap === 'osm'} 
+            onChange={() => setBaseMap('osm')} 
+            style={{ marginRight: '8px' }}
+          />
+          OpenStreetMap
+        </label>
+
+        <label style={{ display: 'block', fontSize: '13px', cursor: 'pointer' }}>
+          <input 
+            type="radio" 
+            name="basemap" 
+            value="satellite" 
+            checked={baseMap === 'satellite'} 
+            onChange={() => setBaseMap('satellite')} 
+            style={{ marginRight: '8px' }}
+          />
+          Satellite Imagery (ArcGIS)
+        </label>
+      </div>
+
+      {/* VECTOR LAYERS CONTROL MENU */}
       <div style={{
         position: 'absolute',
         top: '10px',

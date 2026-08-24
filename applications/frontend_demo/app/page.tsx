@@ -98,72 +98,71 @@ export default function Home() {
     }, []);
 
     return (
-        <Layout style={{ minHeight: '100vh', background: '#f0f2f5' }}>
+        <Layout style={{ height: '100vh', background: '#f0f2f5', overflow: 'hidden' }}>
             <Header style={{ background: '#001529', padding: '0 20px', display: 'flex', alignItems: 'center' }}>
                 <Title level={3} style={{ color: 'white', margin: 0 }}>Logistics GIS DEMO</Title>
             </Header>
 
-            <Content style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
-                <Row gutter={[24, 24]}>
-                    <Col span={24}>
-                        <Card styles={{ body: { padding: '6px 8px' } }}>
-                            <Row justify="space-between" align="middle" gutter={[12, 12]}>
-                                <Col>
-                                    <Statistic 
-                                      title={`API Status (Port: ${API_PORT})`} 
-                                      value={apiStatus} 
-                                      styles={{ content: { fontSize: 16, lineHeight: 1.2 } }} 
-                                    />
-                                </Col>
-                                <Col>
-                                    <Button
-                                        type="primary"
-                                        onClick={() => {
-                                            message.loading({ content: 'Ingesting & Loading All Data...', key: 'ingest' });
-                                            
-                                            const ingestAgencies = fetch(`${API_BASE_URL}/api/v1/collect/ingest-postal-agencies-file`, { method: 'POST' });
-                                            const ingestNeighborhoods = fetch(`${API_BASE_URL}/api/v1/collect/ingest-neighborhoods-file`, { method: 'POST' });
-                                            const ingestStreets = fetch(`${API_BASE_URL}/api/v1/collect/ingest-alagoas-streets-file`, { method: 'POST' });
+            <Content style={{ padding: '12px', width: '100%', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', flex: 1, gap: '12px' }}>
+                    <Card styles={{ body: { padding: '6px 8px' } }}>
+                        <Row justify="space-between" align="middle" gutter={[12, 12]}>
+                            <Col>
+                                <Statistic 
+                                  title={`API Status (Port: ${API_PORT})`} 
+                                  value={apiStatus} 
+                                  styles={{ content: { fontSize: 16, lineHeight: 1.2 } }} 
+                                />
+                            </Col>
+                            <Col>
+                                <Button
+                                    type="primary"
+                                    onClick={() => {
+                                        message.loading({ content: 'Ingesting & Loading All Data...', key: 'ingest' });
+                                        
+                                        const ingestAgencies = fetch(`${API_BASE_URL}/api/v1/collect/ingest-postal-agencies-file`, { method: 'POST' });
+                                        const ingestNeighborhoods = fetch(`${API_BASE_URL}/api/v1/collect/ingest-neighborhoods-file`, { method: 'POST' });
+                                        const ingestStreets = fetch(`${API_BASE_URL}/api/v1/collect/ingest-alagoas-streets-file`, { method: 'POST' });
 
-                                            Promise.all([ingestAgencies, ingestNeighborhoods, ingestStreets])
-                                                .then(async () => {
-                                                    message.success({ content: 'Ingestion triggered, loading map data...', key: 'ingest', duration: 3 });
-                                                    fetchMapData(); 
-                                                })
-                                                .catch(() => {
-                                                    message.error({ content: 'Failed to ingest data. Check API logs.', key: 'ingest', duration: 3 });
-                                                    fetchMapData();
-                                                });
-                                        }}
-                                    >
-                                        Simulate & Load All Data
-                                    </Button>
-                                </Col>
-                            </Row>
-                        </Card>
-                    </Col>
+                                        Promise.all([ingestAgencies, ingestNeighborhoods, ingestStreets])
+                                            .then(async () => {
+                                                message.success({ content: 'Ingestion triggered, loading map data...', key: 'ingest', duration: 3 });
+                                                fetchMapData(); 
+                                            })
+                                            .catch(() => {
+                                                message.error({ content: 'Failed to ingest data. Check API logs.', key: 'ingest', duration: 3 });
+                                                fetchMapData();
+                                            });
+                                    }}
+                                >
+                                    Simulate & Load All Data
+                                </Button>
+                            </Col>
+                        </Row>
+                    </Card>
 
-                    <Col span={24}>
-                        <Card title="Spatial Map (MapLibre + PostGIS)" variant="borderless" style={{ height: '100%' }}>
-                            <DynamicMap geoData={geoData} neighborhoodData={neighborhoodData} streetsData={streetsData} />
-                        </Card>
-                    </Col>
+                    <Card 
+                        title="Spatial Map (MapLibre + PostGIS)" 
+                        variant="borderless" 
+                        style={{ display: 'flex', flexDirection: 'column', flex: 1 }} 
+                        styles={{ body: { flex: 1, padding: 0 } }}
+                    >
+                        <DynamicMap geoData={geoData} neighborhoodData={neighborhoodData} streetsData={streetsData} />
+                    </Card>
 
-                    <Col span={24}>
-                        <Card title="Data Architecture (React Flow)" variant="borderless" style={{ height: '100%' }}>
-                            <div style={{ height: '400px', width: '100%', border: '1px solid #e8e8e8', borderRadius: '8px' }}>
-                                <ReactFlow
-                                 defaultNodes={initialNodes} 
-                                 defaultEdges={initialEdges} 
-                                 fitView 
-                                 proOptions={{ hideAttribution: true }}>
-                                    <Background color="#e0e0e0" gap={16} />
-                                    <Controls />
-                                </ReactFlow>
-                            </div>
-                        </Card>
-                    </Col>
-                </Row>
+                    {/* <Card title="Data Architecture (React Flow)" variant="borderless" style={{ height: '100%' }}>
+                        <div style={{ height: '400px', width: '100%', border: '1px solid #e8e8e8', borderRadius: '8px' }}>
+                            <ReactFlow
+                                defaultNodes={initialNodes} 
+                                defaultEdges={initialEdges} 
+                                fitView 
+                                proOptions={{ hideAttribution: true }}>
+                                <Background color="#e0e0e0" gap={16} />
+                                <Controls />
+                            </ReactFlow>
+                        </div>
+                    </Card> */}
+                </div>
             </Content>
         </Layout>
     );

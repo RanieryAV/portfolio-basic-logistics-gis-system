@@ -117,7 +117,7 @@ export default function Map({ geoData, neighborhoodData, streetsData }: MapProps
 
         // --- STREETS ---
         map.addSource('streets', { type: 'geojson', data: emptyGeoJSON });
-        map.addLayer({ id: 'streets-line', type: 'line', source: 'streets', paint: { 'line-color': '#8c8c8c', 'line-width': 1 } });
+        map.addLayer({ id: 'streets-line', type: 'line', source: 'streets', paint: { 'line-color': '#50C878', 'line-width': 2 } });
 
         map.on('click', 'streets-line', (e: any) => {
           const props = e.features[0].properties;
@@ -257,7 +257,7 @@ export default function Map({ geoData, neighborhoodData, streetsData }: MapProps
   }, [baseMap, mapLoaded]);
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '60vh', minHeight: '450px' }}>
+    <div style={{ position: 'relative', width: '100%', height: '100%', minHeight: '450px' }}>
       <div ref={mapContainer} style={{ width: '100%', height: '100%', minHeight: '450px', borderRadius: '8px', zIndex: 1 }} />
 
       {/* BASE MAP CONTROL MENU */}

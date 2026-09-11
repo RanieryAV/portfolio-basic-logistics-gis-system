@@ -3,7 +3,7 @@ import os
 import logging
 from shapely.geometry import shape
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy import text
+from sqlalchemy import text, func
 from domain.config.database_config import SessionLocal, engine, Base
 from domain.repositories.data_processing.postal_agencies import PostalAgencies
 from domain.repositories.data_processing.neighborhoods import Neighborhoods
@@ -83,8 +83,6 @@ class IngestPostalAgenciesService:
                     "city": stmt.excluded.city,
                     "state": stmt.excluded.state,
                     "phone": stmt.excluded.phone,
-                    "latitude": stmt.excluded.latitude,
-                    "longitude": stmt.excluded.longitude,
                     "location": stmt.excluded.location,
                 },
             )
@@ -111,8 +109,6 @@ class IngestPostalAgenciesService:
                         "state": state,
                         "zip_code": props.get("CEP"),
                         "phone": props.get("Telefone"),
-                        "latitude": coords[1],
-                        "longitude": coords[0],
                         "location": wkt_point,
                     }
                 )
@@ -167,10 +163,17 @@ class QueryPostalAgenciesService:
             self.db.commit()
             Base.metadata.create_all(bind=engine)
 
-            agencies = self.db.query(PostalAgencies).all()
+            # Latitude and longitude values are directly extracted from the PostGIS POINT geometry...
+            # using ST_X and ST_Y functions in order to preserve the WKB original binary data
+            agencies_data = self.db.query(
+                PostalAgencies,
+                func.ST_X(PostalAgencies.location).label("longitude"),
+                func.ST_Y(PostalAgencies.location).label("latitude")
+            ).all()
+
             features = []
 
-            for agency in agencies:
+            for agency, longitude, latitude in agencies_data:
                 agency_dict = agency.to_dict()
 
                 # Using the raw latitude and longitude floats already saved in the database
@@ -188,8 +191,8 @@ class QueryPostalAgenciesService:
                         "geometry": {
                             "type": "Point",
                             "coordinates": [
-                                agency_dict.get("longitude"),
-                                agency_dict.get("latitude"),
+                                longitude,
+                                latitude,
                             ],
                         },
                     }

@@ -26,10 +26,6 @@ class PostalAgencies(Base):
 
     phone = Column(String(80), nullable=True)
 
-    latitude = Column(Float, nullable=False)
-
-    longitude = Column(Float, nullable=False)
-
     location = Column(Geometry(geometry_type="POINT", srid=4326), nullable=False)
 
     def __init__(self, **kwargs):
@@ -49,7 +45,5 @@ class PostalAgencies(Base):
             "state": self.state,
             "zip_code": self.zip_code,
             "phone": self.phone,
-            "latitude": self.latitude,
-            "longitude": self.longitude,
             "location": point_wkt,
         }

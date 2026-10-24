@@ -10,8 +10,8 @@ backend_packages = [
 ]
 
 [python]
-# Matches your repository's .python-version (3.11)
-interpreter_constraints = ["==3.11.*"]
+# Matches your repository's .python-version (3.12)
+interpreter_constraints = ["==3.12.*"]
 
 [source]
 # Tell Pants where your Python import paths begin

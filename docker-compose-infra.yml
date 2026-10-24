@@ -12,7 +12,7 @@ services:
       context: shared/utils/jupyter_env/
       dockerfile: dockerfile.jupyter
     ports:
-      - "8888:8888"
+      - "${JUPYTER_NOTEBOOK_PORT}:${JUPYTER_NOTEBOOK_PORT}"
   
   app-postgis-db:
     image: kartoza/postgis:15-3.3

@@ -16,6 +16,12 @@ from src.services.collect_data_service import (
     QueryAlagoasStreetsService,
 )
 
+from src.services.h3_service import (
+    QueryH3PostalAgenciesService,
+    QueryH3NeighborhoodsService,
+    QueryH3AlagoasStreetsService,
+)
+
 # Router replacing the 'Namespace' from flask_restx
 router = APIRouter(prefix="/collect", tags=["Data Collection"])
 
@@ -132,6 +138,36 @@ class CollectDataController:
         except Exception:
             return {"type": "FeatureCollection", "features": []}
 
+    async def get_h3_postal_agencies(self, resolution: int = 8):
+        """
+        Fetches all postal agencies from PostGIS and returns them as H3 Hexagons (GeoJSON).
+        """
+        try:
+            query_service = QueryH3PostalAgenciesService()
+            return query_service.execute(resolution=resolution)
+        except Exception:
+            return {"type": "FeatureCollection", "features": []}
+
+    async def get_h3_neighborhoods(self, resolution: int = 8):
+        """
+        Fetches Neighborhoods from PostGIS and returns their H3 Hexagon fill (GeoJSON).
+        """
+        try:
+            service = QueryH3NeighborhoodsService()
+            return service.execute(resolution=resolution)
+        except Exception:
+            return {"type": "FeatureCollection", "features": []}
+
+    async def get_h3_alagoas_streets(self, resolution: int = 8, buffer: float = 0.0002):
+        """
+        Fetches streets from PostGIS, applies a buffer, and returns them as H3 Hexagons (GeoJSON).
+        """
+        try:
+            query_service = QueryH3AlagoasStreetsService()
+            return query_service.execute(resolution=resolution, buffer_degrees=buffer)
+        except Exception:
+            return {"type": "FeatureCollection", "features": []}
+
 
 # ---------------------------------------------------------
 # Router Mappings
@@ -187,4 +223,25 @@ router.add_api_route(
     controller_instance.get_alagoas_streets_from_db,
     methods=["GET"],
     summary="Get Alagoas Streets as GeoJSON",
+)
+
+router.add_api_route(
+    "/get-h3-postal-agencies",
+    controller_instance.get_h3_postal_agencies,
+    methods=["GET"],
+    summary="Get H3 Postal Agencies as GeoJSON",
+)
+
+router.add_api_route(
+    "/get-h3-neighborhoods",
+    controller_instance.get_h3_neighborhoods,
+    methods=["GET"],
+    summary="Get H3 Neighborhoods as GeoJSON",
+)
+
+router.add_api_route(
+    "/get-h3-alagoas-streets",
+    controller_instance.get_h3_alagoas_streets,
+    methods=["GET"],
+    summary="Get H3 Alagoas Streets as GeoJSON",
 )

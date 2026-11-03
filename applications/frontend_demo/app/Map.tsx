@@ -2,10 +2,11 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 
-// Declaration to prevent TypeScript errors regarding the injected MapLibre object
+// Declaration to prevent TypeScript errors regarding the injected MapLibre and H3 objects
 declare global {
   interface Window {
     maplibregl: any;
+    h3: any;
   }
 }
 
@@ -29,16 +30,146 @@ export default function Map({ geoData, neighborhoodData, streetsData }: MapProps
   // State to track the active base map surface
   const [baseMap, setBaseMap] = useState<'osm' | 'satellite'>('osm');
 
+  // States for H3 Mode ---
+  const [isH3Mode, setIsH3Mode] = useState(false);
+  const [h3Data, setH3Data] = useState<{
+    agencies: any;
+    neighborhoods: any;
+    streets: any;
+  }>({
+    agencies: null,
+    neighborhoods: null,
+    streets: null
+  });
+
+  // Resolve base API URL using the exact environment logic from page.tsx
+  const API_PORT = process.env.NEXT_PUBLIC_FASTAPI_DATA_PROCESSING_DOCKER || process.env.FASTAPI_DATA_PROCESSING_PORT_DOCKER || '5556';
+  const API_BASE_URL = `http://localhost:${API_PORT}`;
+
+  // --- STATE & HELPER FOR DYNAMIC H3 RESOLUTION ---
+  const [h3Resolution, setH3Resolution] = useState<number>(8);
+
+  const getH3ResolutionFromZoom = (zoom: number): number => {
+    if (zoom <= 10.5) return 7;  // Far: Aggregated hexagons
+    if (zoom <= 12.5) return 8;  // District level
+    if (zoom <= 14.5) return 9;  // Neighborhood level (Subdividing)
+    if (zoom <= 16.5) return 10; // Block level
+    return 11;                   // Street level (Micro-hexagons)
+  };
+
+  // --- DYNAMIC BASE GRID GENERATION & RESOLUTION TRACKING ---
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded) return;
+
+    const updateGridAndResolution = () => {
+      const currentZoom = map.getZoom();
+      const newResolution = getH3ResolutionFromZoom(currentZoom);
+      setH3Resolution((prev) => (prev !== newResolution ? newResolution : prev));
+
+      if (isH3Mode && window.h3) {
+        // Generate continuous grid for the current viewport
+        const bounds = map.getBounds();
+        const nw = bounds.getNorthWest();
+        const ne = bounds.getNorthEast();
+        const se = bounds.getSouthEast();
+        const sw = bounds.getSouthWest();
+        
+        // GeoJSON polygon representing the screen
+        const boundingBox = [[ [nw.lng, nw.lat], [ne.lng, ne.lat], [se.lng, se.lat], [sw.lng, sw.lat], [nw.lng, nw.lat] ]];
+        
+        try {
+          const cells = window.h3.polygonToCells(boundingBox, newResolution, true);
+          const features = cells.map((cell: string) => ({
+            type: 'Feature',
+            geometry: {
+              type: 'Polygon',
+              coordinates: [window.h3.cellToBoundary(cell, true)]
+            },
+            properties: { h3_index: cell }
+          }));
+          
+          map.getSource('h3-base-grid').setData({ type: 'FeatureCollection', features });
+        } catch (e) {
+          console.warn("Viewport too large for H3 grid generation at this resolution.", e);
+        }
+      }
+    };
+
+    // Update on movement end to render new empty grid areas
+    map.on('moveend', updateGridAndResolution);
+    
+    // Initial call to draw the grid if H3 is activated
+    if (isH3Mode) updateGridAndResolution();
+
+    return () => {
+      map.off('moveend', updateGridAndResolution);
+    };
+  }, [mapLoaded, isH3Mode]);
+
+  // --- FETCH H3 DATA DYNAMICALLY BASED ON RESOLUTION ---
+  useEffect(() => {
+    if (!isH3Mode) return;
+
+    const fetchH3Data = async () => {
+      const endpoints = [
+        `${API_BASE_URL}/api/v1/collect/get-h3-postal-agencies?resolution=${h3Resolution}`,
+        `${API_BASE_URL}/api/v1/collect/get-h3-neighborhoods?resolution=${h3Resolution}`,
+        `${API_BASE_URL}/api/v1/collect/get-h3-alagoas-streets?resolution=${h3Resolution}`
+      ];
+
+      try {
+        const responses = await Promise.all(endpoints.map((url) => fetch(url)));
+
+        const parsedResults = await Promise.all(
+          responses.map(async (response, index) => {
+            if (!response.ok) {
+              const errorText = await response.text();
+              console.error(
+                `HTTP Error ${response.status} on endpoint: ${endpoints[index]}\nServer response:`,
+                errorText
+              );
+              return { type: 'FeatureCollection', features: [] };
+            }
+
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+              return await response.json();
+            } else {
+              const rawResponse = await response.text();
+              console.error(
+                `Non-JSON response received from endpoint: ${endpoints[index]}\nServer response:`,
+                rawResponse
+              );
+              return { type: 'FeatureCollection', features: [] };
+            }
+          })
+        );
+
+        setH3Data({
+          agencies: parsedResults[0],
+          neighborhoods: parsedResults[1],
+          streets: parsedResults[2],
+        });
+      } catch (error) {
+        console.error('Fatal network/CORS error while fetching H3 datasets:', error);
+      }
+    };
+
+    fetchH3Data();
+  }, [isH3Mode, h3Resolution]);
+
   // 1. BLIND CDN INJECTION
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const initMap = () => {
-      if (!mapContainer.current || mapRef.current || !window.maplibregl) return;
+      if (!mapContainer.current || mapRef.current || !window.maplibregl || !window.h3) return;
       const maplibregl = window.maplibregl;
 
       const map = new maplibregl.Map({
         container: mapContainer.current,
+        maxZoom: 19, // <-- NEW: Restricts the camera from zooming past level 19
         style: {
           version: 8,
           sources: {
@@ -46,12 +177,14 @@ export default function Map({ geoData, neighborhoodData, streetsData }: MapProps
               type: 'raster',
               tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
               tileSize: 256,
+              maxzoom: 19, // <-- NEW: Prevents fetching OSM tiles beyond zoom 19
               attribution: '&copy; OpenStreetMap contributors'
             },
             'satellite-tiles': {
               type: 'raster',
               tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
               tileSize: 256,
+              maxzoom: 19, // <-- NEW: Prevents fetching Satellite tiles beyond zoom 19
               attribution: 'Tiles &copy; Esri'
             }
           },
@@ -62,9 +195,7 @@ export default function Map({ geoData, neighborhoodData, streetsData }: MapProps
               source: 'osm-tiles',
               minzoom: 0,
               maxzoom: 19,
-              layout: {
-                visibility: 'visible'
-              }
+              layout: { visibility: 'visible' }
             },
             {
               id: 'satellite-tiles-layer',
@@ -72,9 +203,7 @@ export default function Map({ geoData, neighborhoodData, streetsData }: MapProps
               source: 'satellite-tiles',
               minzoom: 0,
               maxzoom: 19,
-              layout: {
-                visibility: 'none'
-              }
+              layout: { visibility: 'none' }
             }
           ]
         },
@@ -93,6 +222,10 @@ export default function Map({ geoData, neighborhoodData, streetsData }: MapProps
           if (!e.features?.[0]) return;
           new maplibregl.Popup({ offset: 15 }).setLngLat(e.lngLat).setHTML(html).addTo(map);
         };
+
+        // ==========================================
+        // ORIGINAL LAYERS
+        // ==========================================
 
         // --- NEIGHBORHOODS ---
         map.addSource('neighborhoods', { type: 'geojson', data: emptyGeoJSON });
@@ -172,8 +305,62 @@ export default function Map({ geoData, neighborhoodData, streetsData }: MapProps
           `);
         });
 
-        // --- POINTER EVENTS (All interactive layers) ---
-        ['neighborhoods-fill', 'streets-line', 'agencies-point'].forEach(layer => {
+        // ==========================================
+        // NEW H3 LAYERS
+        // ==========================================
+
+        // --- H3 GLOBAL BACKGROUND GRID ---
+        map.addSource('h3-base-grid', { type: 'geojson', data: emptyGeoJSON });
+        map.addLayer({
+          id: 'h3-base-grid-line',
+          type: 'line',
+          source: 'h3-base-grid',
+          paint: { 'line-color': '#8c8c8c', 'line-width': 1, 'line-opacity': 0.3 }
+        });
+
+        // --- H3 NEIGHBORHOODS ---
+        map.addSource('h3-neighborhoods', { type: 'geojson', data: emptyGeoJSON });
+        map.addLayer({
+          id: 'h3-neighborhoods-fill',
+          type: 'fill',
+          source: 'h3-neighborhoods',
+          paint: { 'fill-color': '#1890ff', 'fill-opacity': 0.4, 'fill-outline-color': '#0050b3' }
+        });
+
+        // --- H3 STREETS ---
+        map.addSource('h3-streets', { type: 'geojson', data: emptyGeoJSON });
+        map.addLayer({
+          id: 'h3-streets-fill',
+          type: 'fill',
+          source: 'h3-streets',
+          paint: { 'fill-color': '#50C878', 'fill-opacity': 0.4, 'fill-outline-color': '#237841' }
+        });
+
+        // --- H3 POSTAL AGENCIES ---
+        map.addSource('h3-agencies', { type: 'geojson', data: emptyGeoJSON });
+        map.addLayer({
+          id: 'h3-agencies-fill',
+          type: 'fill',
+          source: 'h3-agencies',
+          paint: { 'fill-color': '#f5222d', 'fill-opacity': 0.6, 'fill-outline-color': '#a8071a' }
+        });
+
+        // Generic pop-up for all H3 layers
+        ['h3-neighborhoods-fill', 'h3-streets-fill', 'h3-agencies-fill'].forEach(layer => {
+          map.on('click', layer, (e: any) => {
+            const props = e.features[0].properties;
+            addPopup(e, `
+              <div style="font-family: Arial, sans-serif;">
+                <h4 style="margin: 0; color: #333;">H3 Cell</h4>
+                <p style="margin: 4px 0 2px 0; font-size: 13px;"><strong>Index:</strong> ${props.h3_index}</p>
+                <p style="margin: 2px 0; font-size: 13px;"><strong>Ref/Nome:</strong> ${props.name || props.ref || 'N/A'}</p>
+              </div>
+            `);
+          });
+        });
+
+        // --- POINTER EVENTS (All of the interactive layers) ---
+        ['neighborhoods-fill', 'streets-line', 'agencies-point', 'h3-neighborhoods-fill', 'h3-streets-fill', 'h3-agencies-fill'].forEach(layer => {
           map.on('mouseenter', layer, () => { map.getCanvas().style.cursor = 'pointer'; });
           map.on('mouseleave', layer, () => { map.getCanvas().style.cursor = ''; });
         });
@@ -183,7 +370,27 @@ export default function Map({ geoData, neighborhoodData, streetsData }: MapProps
       });
     };
 
-    if (window.maplibregl) {
+    const loadScripts = async () => {
+      if (!window.maplibregl) {
+        await new Promise((resolve) => {
+          const script = document.createElement('script');
+          script.src = 'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js';
+          script.onload = resolve;
+          document.head.appendChild(script);
+        });
+      }
+      if (!window.h3) {
+        await new Promise((resolve) => {
+          const script = document.createElement('script');
+          script.src = 'https://unpkg.com/h3-js@4.1.0/dist/h3-js.umd.js';
+          script.onload = resolve;
+          document.head.appendChild(script);
+        });
+      }
+      initMap();
+    };
+
+    if (window.maplibregl && window.h3) {
       initMap();
     } else {
       if (!document.getElementById('maplibre-css')) {
@@ -193,37 +400,30 @@ export default function Map({ geoData, neighborhoodData, streetsData }: MapProps
         link.href = 'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css';
         document.head.appendChild(link);
       }
-      if (!document.getElementById('maplibre-js')) {
-        const script = document.createElement('script');
-        script.id = 'maplibre-js';
-        script.src = 'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js';
-        script.onload = initMap;
-        document.head.appendChild(script);
-      }
+      loadScripts();
     }
   }, []);
 
-  // 2. DATA INJECTION
+  // 2. DATA INJECTION (Originals + H3)
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapLoaded) return;
 
     try {
-      if (neighborhoodData?.features) {
-        map.getSource('neighborhoods').setData(neighborhoodData);
-      }
+      // Injects originals
+      if (neighborhoodData?.features) map.getSource('neighborhoods').setData(neighborhoodData);
+      if (geoData?.features) map.getSource('agencies').setData(geoData);
+      if (streetsData?.features) map.getSource('streets').setData(streetsData);
 
-      if (geoData?.features) {
-        map.getSource('agencies').setData(geoData);
-      }
-
-      if (streetsData?.features) {
-        map.getSource('streets').setData(streetsData);
-      }
+      // Injects H3 if the data has already been downloaded
+      if (h3Data.neighborhoods?.features) map.getSource('h3-neighborhoods').setData(h3Data.neighborhoods);
+      if (h3Data.agencies?.features) map.getSource('h3-agencies').setData(h3Data.agencies);
+      if (h3Data.streets?.features) map.getSource('h3-streets').setData(h3Data.streets);
+      
     } catch (error) {
       console.error('Error injecting data:', error);
     }
-  }, [mapLoaded, geoData, neighborhoodData, streetsData]);
+  }, [mapLoaded, geoData, neighborhoodData, streetsData, h3Data]);
 
   // 3. VECTOR LAYER VISIBILITY CONTROL
   useEffect(() => {
@@ -236,11 +436,19 @@ export default function Map({ geoData, neighborhoodData, streetsData }: MapProps
       }
     };
 
-    setVisibility('neighborhoods-fill', layers.neighborhoods);
-    setVisibility('neighborhoods-line', layers.neighborhoods);
-    setVisibility('streets-line', layers.streets);
-    setVisibility('agencies-point', layers.agencies);
-  }, [layers, mapLoaded]);
+    // Original layers (they appear if the layer is ON and the H3 is OFF)
+    setVisibility('neighborhoods-fill', layers.neighborhoods && !isH3Mode);
+    setVisibility('neighborhoods-line', layers.neighborhoods && !isH3Mode);
+    setVisibility('streets-line', layers.streets && !isH3Mode);
+    setVisibility('agencies-point', layers.agencies && !isH3Mode);
+
+    // H3 Layers (they appear if the layer is ON and the H3 is ON)
+    setVisibility('h3-base-grid-line', isH3Mode);
+    setVisibility('h3-neighborhoods-fill', layers.neighborhoods && isH3Mode);
+    setVisibility('h3-streets-fill', layers.streets && isH3Mode);
+    setVisibility('h3-agencies-fill', layers.agencies && isH3Mode);
+
+  }, [layers, isH3Mode, mapLoaded]);
 
   // 4. BASE MAP VISIBILITY CONTROL
   useEffect(() => {
@@ -301,17 +509,19 @@ export default function Map({ geoData, neighborhoodData, streetsData }: MapProps
 
       {/* VECTOR LAYERS CONTROL MENU */}
       <div style={{
-        position: 'absolute',
-        top: '10px',
-        right: '10px',
-        background: 'rgba(255, 255, 255, 0.95)',
-        padding: '12px',
-        borderRadius: '6px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-        zIndex: 2,
-        fontFamily: 'Arial, sans-serif'
+        position: 'absolute', top: '10px', right: '10px',
+        background: 'rgba(255, 255, 255, 0.95)', padding: '12px', borderRadius: '6px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.2)', zIndex: 2, fontFamily: 'Arial, sans-serif', width: '220px'
       }}>
-        <h4 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#333' }}>Layers Control</h4>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', paddingBottom: '10px', borderBottom: '1px solid #ddd' }}>
+          <h4 style={{ margin: 0, fontSize: '14px', color: '#333' }}>Layers Control</h4>
+          
+          {/* TOGGLE H3 BUTTON */}
+          <label style={{ fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', background: isH3Mode ? '#e6f7ff' : '#f5f5f5', border: `1px solid ${isH3Mode ? '#91d5ff' : '#d9d9d9'}`, padding: '4px 8px', borderRadius: '4px', color: isH3Mode ? '#0050b3' : '#595959' }}>
+            <input type="checkbox" checked={isH3Mode} onChange={e => setIsH3Mode(e.target.checked)} style={{ display: 'none' }} />
+            {isH3Mode ? 'H3 Active' : 'H3 Inactive'}
+          </label>
+        </div>
 
         <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', cursor: 'pointer' }}>
           <input type="checkbox" checked={layers.neighborhoods} onChange={e => setLayers(prev => ({...prev, neighborhoods: e.target.checked}))} style={{ marginRight: '8px' }}/>

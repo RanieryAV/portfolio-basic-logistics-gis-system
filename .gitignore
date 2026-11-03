@@ -5,7 +5,7 @@ infrastructure/database/postgis/data/*
 .idea
 __pycache__
 *.pkl
-logistics_gis_venv
+logistics_gis_venv/
 
 # Pants (smart build system)
 .pants.d/

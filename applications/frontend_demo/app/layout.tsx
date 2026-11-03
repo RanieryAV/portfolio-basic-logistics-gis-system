@@ -2,7 +2,7 @@ import { AntdRegistry } from '@ant-design/nextjs-registry';
 import './globals.css';
 
 export const metadata = {
-  title: 'Logistics GIS DEMO',
+  title: 'GIS Prototype',
   description: 'Spatial ML Pipeline Demo',
 };
 

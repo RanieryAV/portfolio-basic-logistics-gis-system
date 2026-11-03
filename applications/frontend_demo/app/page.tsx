@@ -100,7 +100,7 @@ export default function Home() {
     return (
         <Layout style={{ height: '100vh', background: '#f0f2f5', overflow: 'hidden' }}>
             <Header style={{ background: '#001529', padding: '0 20px', display: 'flex', alignItems: 'center' }}>
-                <Title level={3} style={{ color: 'white', margin: 0 }}>Logistics GIS DEMO</Title>
+                <Title level={3} style={{ color: 'white', margin: 0 }}>GIS Prototype</Title>
             </Header>
 
             <Content style={{ padding: '12px', width: '100%', display: 'flex', flexDirection: 'column' }}>

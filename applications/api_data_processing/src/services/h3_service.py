@@ -1,7 +1,6 @@
 import json
 import os
 import logging
-import h3
 from shapely.geometry import shape
 from sqlalchemy.dialects.postgresql import insert, JSONB
 from sqlalchemy import text, func, cast, literal_column, Text

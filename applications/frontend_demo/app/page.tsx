@@ -9,42 +9,24 @@ import 'reactflow/dist/style.css';
 const { Header, Content } = Layout;
 const { Title } = Typography;
 
-const API_PORT = process.env.NEXT_PUBLIC_FASTAPI_DATA_PROCESSING_DOCKER || process.env.FASTAPI_DATA_PROCESSING_PORT_DOCKER || '5556';
-const API_BASE_URL = `http://localhost:${API_PORT}`;
-
-type GeoData = {
-    type: string;
-    features: Array<{
-        type: string;
-        properties: { name: string; [key: string]: any };
-        geometry: { type: string; coordinates: any };
-    }>;
-};
-
 const DynamicMap = dynamic(() => import('./Map'), {
     ssr: false,
     loading: () => <Spin description="Loading Geographic Engine..." style={{ width: '100%', padding: '50px 0' }} />
 });
 
-const initialNodes: Node[] = [
-    { id: '1', position: { x: 50, y: 50 }, data: { label: 'PostGIS DB (WKB)' }, type: 'input' },
-    { id: '2', position: { x: 50, y: 150 }, data: { label: 'FastAPI (Data Processing)' } },
-    { id: '3', position: { x: 50, y: 250 }, data: { label: 'MapLibre UI (GeoJSON)' }, type: 'output' },
-];
-
-const initialEdges: Edge[] = [
-    { id: 'e1-2', source: '1', target: '2', animated: true },
-    { id: 'e2-3', source: '2', target: '3', animated: true },
-];
-
 export default function Home() {
+    const [apiPort, setApiPort] = useState('5556');
     const [apiStatus, setApiStatus] = useState('Checking...');
-    const [geoData, setGeoData] = useState<GeoData | null>(null);
-    const [neighborhoodData, setNeighborhoodData] = useState<GeoData | null>(null);
-    const [streetsData, setStreetsData] = useState<GeoData | null>(null);
+    const [geoData, setGeoData] = useState<any>(null);
+    const [neighborhoodData, setNeighborhoodData] = useState<any>(null);
+    const [streetsData, setStreetsData] = useState<any>(null);
 
-    const fetchMapData = () => {
-        fetch(`${API_BASE_URL}/api/v1/collect/get-postal-agencies-from-db`)
+    const API_BASE_URL = `http://localhost:${apiPort}`;
+
+    const fetchMapData = (activePort: string) => {
+        const baseUrl = `http://localhost:${activePort}`;
+
+        fetch(`${baseUrl}/api/v1/collect/get-postal-agencies-from-db`)
             .then(res => {
                 if (!res.ok) throw new Error('Failed to fetch map data');
                 return res.json();
@@ -54,14 +36,14 @@ export default function Home() {
             })
             .catch(err => console.error("Could not load map data from DB, keeping fallback.", err));
 
-        fetch(`${API_BASE_URL}/api/v1/collect/get-neighborhoods-from-db`)
+        fetch(`${baseUrl}/api/v1/collect/get-neighborhoods-from-db`)
             .then(res => res.ok ? res.json() : null)
             .then(data => {
                 if (data && data.features && data.features.length > 0) setNeighborhoodData(data);
             })
             .catch(err => console.error("Could not load neighborhoods.", err));
             
-        fetch(`${API_BASE_URL}/api/v1/collect/get-alagoas-streets-from-db`)
+        fetch(`${baseUrl}/api/v1/collect/get-alagoas-streets-from-db`)
             .then(res => res.ok ? res.json() : null)
             .then(data => {
                 if (data && data.features && data.features.length > 0) setStreetsData(data);
@@ -70,20 +52,34 @@ export default function Home() {
     };
 
     useEffect(() => {
-        fetch(`${API_BASE_URL}/health`)
-            .then((res) => {
-                if (!res.ok) throw new Error('Network error');
-                return res.json();
-            })
-            .then((data) => {
-                setApiStatus(data.status === 'online' ? 'Online' : 'Offline');
-                message.success('Successfully connected to the FastAPI!');
-                fetchMapData();
-            })
-            .catch(() => {
+        const checkPortsAndConnect = async () => {
+            const portsToTest = ['5556', '5557'];
+            let connected = false;
+
+            for (const port of portsToTest) {
+                try {
+                    const res = await fetch(`http://localhost:${port}/health`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        setApiPort(port);
+                        setApiStatus(data.status === 'online' ? 'Online' : 'Offline');
+                        message.success(`Successfully connected to FastAPI on port ${port}!`);
+                        fetchMapData(port);
+                        connected = true;
+                        break;
+                    }
+                } catch (err) {
+                    console.warn(`Port ${port} is offline, trying next...`);
+                }
+            }
+
+            if (!connected) {
                 setApiStatus('Offline');
                 message.warning('FastAPI is offline. Running fallback data on the map.');
-            });
+            }
+        };
+
+        checkPortsAndConnect();
 
         setGeoData({
             type: 'FeatureCollection',
@@ -106,7 +102,7 @@ export default function Home() {
                 <Row align="middle" gutter={16}>
                     <Col>
                         <span style={{ color: 'rgba(255, 255, 255, 0.65)', marginRight: 8, fontSize: '14px' }}>
-                            API Status (Port: {API_PORT}):
+                            API Status (Port: {apiPort}):
                         </span>
                         <span style={{ color: apiStatus === 'Online' ? '#52c41a' : '#ff4d4f', fontWeight: 'bold', fontSize: '14px' }}>
                             {apiStatus}
@@ -125,11 +121,11 @@ export default function Home() {
                                 Promise.all([ingestAgencies, ingestNeighborhoods, ingestStreets])
                                     .then(async () => {
                                         message.success({ content: 'Ingestion triggered, loading map data...', key: 'ingest', duration: 3 });
-                                        fetchMapData(); 
+                                        fetchMapData(apiPort); 
                                     })
                                     .catch(() => {
                                         message.error({ content: 'Failed to ingest data. Check API logs.', key: 'ingest', duration: 3 });
-                                        fetchMapData();
+                                        fetchMapData(apiPort);
                                     });
                             }}
                         >
@@ -148,21 +144,8 @@ export default function Home() {
                         style={{ display: 'flex', flexDirection: 'column', flex: 1 }} 
                         styles={{ body: { flex: 1, padding: 0 } }}
                     >
-                        <DynamicMap geoData={geoData} neighborhoodData={neighborhoodData} streetsData={streetsData} />
+                        <DynamicMap apiPort={apiPort} geoData={geoData} neighborhoodData={neighborhoodData} streetsData={streetsData} />
                     </Card>
-
-                    {/* <Card title="Data Architecture (React Flow)" variant="borderless" style={{ height: '100%' }}>
-                        <div style={{ height: '400px', width: '100%', border: '1px solid #e8e8e8', borderRadius: '8px' }}>
-                            <ReactFlow
-                                defaultNodes={initialNodes} 
-                                defaultEdges={initialEdges} 
-                                fitView 
-                                proOptions={{ hideAttribution: true }}>
-                                <Background color="#e0e0e0" gap={16} />
-                                <Controls />
-                            </ReactFlow>
-                        </div>
-                    </Card> */}
                 </div>
             </Content>
         </Layout>

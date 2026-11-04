@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Add the root directory to the PYTHONPATH
-export PYTHONPATH=$(pwd)
+export PYTHONPATH=$(pwd)/applications/api_data_processing:$(pwd)
 
 # Load environment variables from the repository .env file
 set -a

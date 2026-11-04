@@ -48,22 +48,22 @@
     - For the Data Processing API, run the commands below from the repository root directory:
     ```sh
     chmod +x scripts/launch_data_processing_api.sh
-    ./launch_data_processing_api.sh
+    ./scripts/launch_data_processing_api.sh
     ```
     - For the Model Training API, run the commands below from the repository root directory:
     ```sh
     chmod +x scripts/launch_model_training_api.sh
-    ./launch_model_training_api.sh
+    ./scripts/launch_model_training_api.sh
     ```
     - For the Model Deployment API, run the commands below from the repository root directory:
     ```sh
     chmod +x scripts/launch_model_deployment_api.sh
-    ./launch_model_deployment_api.sh
+    ./scripts/launch_model_deployment_api.sh
     ```
     - For the Frontend Demo, run the commands below from the repository root directory:
     ```sh
     chmod +x scripts/launch_frontend_demo.sh
-    ./launch_frontend_demo.sh
+    ./scripts/launch_frontend_demo.sh
     ``` 
 
 # Troubleshooting:

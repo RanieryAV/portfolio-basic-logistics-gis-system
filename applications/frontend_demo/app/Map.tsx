@@ -14,9 +14,10 @@ export type MapProps = {
   geoData: any;
   neighborhoodData?: any;
   streetsData?: any;
+  apiPort?: string;
 };
 
-export default function Map({ geoData, neighborhoodData, streetsData }: MapProps) {
+export default function Map({ geoData, neighborhoodData, streetsData, apiPort = '5556' }: MapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
@@ -36,8 +37,8 @@ export default function Map({ geoData, neighborhoodData, streetsData }: MapProps
   // MINIMAL CHANGE: Consolidate data into a single state
   const [h3DataMerged, setH3DataMerged] = useState<any>(null);
 
-  // Resolve base API URL using the exact environment logic from page.tsx
-  const API_PORT = process.env.NEXT_PUBLIC_FASTAPI_DATA_PROCESSING_DOCKER || process.env.FASTAPI_DATA_PROCESSING_PORT_DOCKER || '5556';
+  // Resolve base API URL dynamically using the port exposed via props
+  const API_PORT = apiPort;
   const API_BASE_URL = `http://localhost:${API_PORT}`;
 
   // --- STATE & HELPER FOR DYNAMIC H3 RESOLUTION ---
@@ -170,7 +171,7 @@ export default function Map({ geoData, neighborhoodData, streetsData }: MapProps
     fetchH3Data();
     
     // 3. ADICIONAR "layers" ÀS DEPENDÊNCIAS PARA REAGIR AOS CLIQUES DOS CHECKBOXES
-  }, [isH3Mode, h3Resolution, layers]);
+  }, [isH3Mode, h3Resolution, layers, API_BASE_URL]);
 
   // 1. BLIND CDN INJECTION
   useEffect(() => {
@@ -247,7 +248,7 @@ export default function Map({ geoData, neighborhoodData, streetsData }: MapProps
 
         map.on('click', 'neighborhoods-fill', (e: any) => {
           const props = e.features[0].properties;
-          // ELEGANT FIX: Checking both the DB column format (name, city, state) and the raw file format (NM_BAIRRO, etc.)
+          // Checking both the DB column format (name, city, state) and the raw file format (NM_BAIRRO, etc.)
           const name = props.name || props.NM_BAIRRO || 'Unknown';
           const city = props.city || props.NM_MUN || 'Unknown';
           const state = props.state || props.NM_UF || 'Unknown';
@@ -333,7 +334,7 @@ export default function Map({ geoData, neighborhoodData, streetsData }: MapProps
           paint: { 'line-color': '#8c8c8c', 'line-width': 1, 'line-opacity': 0.3 }
         });
 
-        // MINIMAL CHANGE: Replaced 3 sources with 1 MERGED SOURCE
+        // Replaced 3 sources with 1 MERGED SOURCE
         map.addSource('h3-merged-data', { type: 'geojson', data: emptyGeoJSON });
         
         // Use Data-Driven Styling based on backend properties.type

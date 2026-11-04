@@ -49,7 +49,7 @@ class QueryH3PostalAgenciesService:
             return _H3_CACHE[cache_key]
 
         try:
-            self.db.execute(text("CREATE SCHEMA IF NOT EXISTS logistics_gis"))
+            self.db.execute(text("CREATE SCHEMA IF NOT EXISTS prototype_gis"))
             self.db.commit()
             Base.metadata.create_all(bind=engine)
 
@@ -102,7 +102,7 @@ class QueryH3NeighborhoodsService:
             return _H3_CACHE[cache_key]
 
         try:
-            self.db.execute(text("CREATE SCHEMA IF NOT EXISTS logistics_gis"))
+            self.db.execute(text("CREATE SCHEMA IF NOT EXISTS prototype_gis"))
             self.db.commit()
             Base.metadata.create_all(bind=engine)
 
@@ -176,7 +176,7 @@ class QueryH3AlagoasStreetsService:
             return _H3_CACHE[cache_key]
 
         try:
-            self.db.execute(text("CREATE SCHEMA IF NOT EXISTS logistics_gis"))
+            self.db.execute(text("CREATE SCHEMA IF NOT EXISTS prototype_gis"))
             self.db.commit()
             Base.metadata.create_all(bind=engine)
 

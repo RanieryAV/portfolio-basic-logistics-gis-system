@@ -29,7 +29,7 @@ services:
     volumes:
       - ./shared/utils/datasets:/app/datasets
       - ./shared/utils/processed_output:/app/processed_output
-      - ./infrastructure/jars/postgresql-42.7.3.jar:/opt/jars/postgresql.jar:ro
+      - ./infrastructure/jars/postgresql-42.7.14.jar:/opt/jars/postgresql.jar:ro
     environment:
       # Flask-related env vars
       FASTAPI_DATA_PROCESSING_HOST: ${FASTAPI_DATA_PROCESSING_HOST}
@@ -64,7 +64,7 @@ services:
       dockerfile: applications/api_model_deployment/dockerfile.api_model_deployment
     volumes:
       - ./applications/api_model_deployment/models:/models
-      - ./infrastructure/jars/postgresql-42.7.3.jar:/opt/jars/postgresql.jar:ro
+      - ./infrastructure/jars/postgresql-42.7.14.jar:/opt/jars/postgresql.jar:ro
     ports:
       - ${FASTAPI_MODEL_DEPLOYMENT_PORT_DOCKER}:${FASTAPI_MODEL_DEPLOYMENT_PORT_DOCKER}
       - 8503:8503 # Temporary port for the streamlit prototype
@@ -101,7 +101,7 @@ services:
     volumes:
       - ./shared/utils/datasets:/app/datasets
       - ./shared/utils/processed_output:/app/processed_output
-      - ./infrastructure/jars/postgresql-42.7.3.jar:/opt/jars/postgresql.jar:ro
+      - ./infrastructure/jars/postgresql-42.7.14.jar:/opt/jars/postgresql.jar:ro
     gpus: all
     environment:
       # Flask-related env vars

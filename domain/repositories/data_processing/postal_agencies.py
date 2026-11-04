@@ -9,7 +9,7 @@ class PostalAgencies(Base):
 
     __table_args__ = (
         UniqueConstraint("name", "zip_code", name="unique_name_zip_code"),
-        {"schema": "logistics_gis"},
+        {"schema": "prototype_gis"},
     )
 
     primary_key = Column(Integer, primary_key=True, autoincrement=True)

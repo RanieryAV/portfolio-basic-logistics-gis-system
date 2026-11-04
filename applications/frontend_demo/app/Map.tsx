@@ -122,46 +122,47 @@ export default function Map({ geoData, neighborhoodData, streetsData }: MapProps
 
   // --- FETCH H3 DATA DYNAMICALLY BASED ON RESOLUTION ---
   useEffect(() => {
-    if (!isH3Mode) return;
+    // 1. GARANTIR QUE O H3 SUMA AO SER DESATIVADO
+    if (!isH3Mode) {
+      setH3DataMerged({ type: 'FeatureCollection', features: [] });
+      
+      // Limpa a malha de fundo (base grid)
+      if (mapRef.current && mapRef.current.getSource('h3-base-grid')) {
+        mapRef.current.getSource('h3-base-grid').setData({ type: 'FeatureCollection', features: [] });
+      }
+      return;
+    }
 
     const fetchH3Data = async () => {
-      const endpoints = [
-        `${API_BASE_URL}/api/v1/collect/get-h3-postal-agencies?resolution=${h3Resolution}`,
-        `${API_BASE_URL}/api/v1/collect/get-h3-neighborhoods?resolution=${h3Resolution}`,
-        `${API_BASE_URL}/api/v1/collect/get-h3-alagoas-streets?resolution=${h3Resolution}`
-      ];
+      // 2. ENVIAR REQUISIÇÕES APENAS PARA AS CAMADAS MARCADAS (CHECKED)
+      const endpoints: string[] = [];
+      if (layers.neighborhoods) endpoints.push(`${API_BASE_URL}/api/v1/collect/get-h3-neighborhoods?resolution=${h3Resolution}`);
+      if (layers.streets) endpoints.push(`${API_BASE_URL}/api/v1/collect/get-h3-alagoas-streets?resolution=${h3Resolution}`);
+      if (layers.agencies) endpoints.push(`${API_BASE_URL}/api/v1/collect/get-h3-postal-agencies?resolution=${h3Resolution}`);
+
+      // Se H3 estiver ativo mas nenhuma camada selecionada, limpa a exibição
+      if (endpoints.length === 0) {
+        setH3DataMerged({ type: 'FeatureCollection', features: [] });
+        return;
+      }
 
       try {
         const responses = await Promise.all(endpoints.map((url) => fetch(url)));
 
         const parsedResults = await Promise.all(
-          responses.map(async (response, index) => {
-            if (!response.ok) {
-              const errorText = await response.text();
-              console.error(`HTTP Error ${response.status} on endpoint: ${endpoints[index]}\nServer response:`, errorText);
-              return { type: 'FeatureCollection', features: [] };
-            }
-
+          responses.map(async (response) => {
+            if (!response.ok) return { type: 'FeatureCollection', features: [] };
+            
             const contentType = response.headers.get('content-type');
             if (contentType && contentType.includes('application/json')) {
               return await response.json();
-            } else {
-              const rawResponse = await response.text();
-              console.error(
-                `Non-JSON response received from endpoint: ${endpoints[index]}\nServer response:`,
-                rawResponse
-              );
-              return { type: 'FeatureCollection', features: [] };
             }
+            return { type: 'FeatureCollection', features: [] };
           })
         );
 
-        // MINIMAL CHANGE: Merge all features into ONE GeoJSON to save MapLibre RAM
-        const mergedFeatures = [
-          ...(parsedResults[1]?.features || []), // Neighborhoods on bottom
-          ...(parsedResults[2]?.features || []), // Streets in middle
-          ...(parsedResults[0]?.features || [])  // Agencies on top
-        ];
+        // Achata todas as features em um único array independentemente de quantas requisições foram feitas
+        const mergedFeatures = parsedResults.flatMap(result => result?.features || []);
 
         setH3DataMerged({
           type: 'FeatureCollection',
@@ -174,7 +175,9 @@ export default function Map({ geoData, neighborhoodData, streetsData }: MapProps
     };
 
     fetchH3Data();
-  }, [isH3Mode, h3Resolution]);
+    
+    // 3. ADICIONAR "layers" ÀS DEPENDÊNCIAS PARA REAGIR AOS CLIQUES DOS CHECKBOXES
+  }, [isH3Mode, h3Resolution, layers]);
 
   // 1. BLIND CDN INJECTION
   useEffect(() => {

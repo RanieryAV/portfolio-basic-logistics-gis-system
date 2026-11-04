@@ -8,7 +8,7 @@ class Neighborhoods(Base):
     __tablename__ = "neighborhoods"
     __table_args__ = (
         UniqueConstraint("code", name="unique_neighborhood_code"),
-        {"schema": "logistics_gis"},
+        {"schema": "prototype_gis"},
     )
 
     primary_key = Column(Integer, primary_key=True, autoincrement=True)

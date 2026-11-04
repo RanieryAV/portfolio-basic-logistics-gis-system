@@ -11,7 +11,7 @@ class AlagoasStreets(Base):
     """
 
     __tablename__ = "alagoas_streets"
-    __table_args__ = {"schema": "logistics_gis"}
+    __table_args__ = {"schema": "prototype_gis"}
 
     primary_key = Column(Integer, primary_key=True, autoincrement=True)
 

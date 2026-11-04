@@ -30,7 +30,7 @@ class IngestPostalAgenciesService:
             batch_size (int): The maximum number of records to process in a single bulk UPSERT.
         """
         try:
-            self.db.execute(text("CREATE SCHEMA IF NOT EXISTS logistics_gis"))
+            self.db.execute(text("CREATE SCHEMA IF NOT EXISTS prototype_gis"))
             self.db.commit()
 
             # Security: Create SQLAlchemy tables in PostGIS if they don't exist yet
@@ -159,7 +159,7 @@ class QueryPostalAgenciesService:
         """
         try:
             # Ensure schema and tables exist before querying to prevent UndefinedTable error on first load
-            self.db.execute(text("CREATE SCHEMA IF NOT EXISTS logistics_gis"))
+            self.db.execute(text("CREATE SCHEMA IF NOT EXISTS prototype_gis"))
             self.db.commit()
             Base.metadata.create_all(bind=engine)
 
@@ -224,7 +224,7 @@ class IngestNeighborhoodsService:
             batch_size (int): The maximum number of records to process in a single bulk UPSERT.
         """
         try:
-            self.db.execute(text("CREATE SCHEMA IF NOT EXISTS logistics_gis"))
+            self.db.execute(text("CREATE SCHEMA IF NOT EXISTS prototype_gis"))
             self.db.commit()
             Base.metadata.create_all(bind=engine)
 
@@ -327,7 +327,7 @@ class QueryNeighborhoodsService:
         """Queries the database and returns a GeoJSON FeatureCollection."""
         try:
             # Ensure schema and tables exist before querying to prevent UndefinedTable error on first load
-            self.db.execute(text("CREATE SCHEMA IF NOT EXISTS logistics_gis"))
+            self.db.execute(text("CREATE SCHEMA IF NOT EXISTS prototype_gis"))
             self.db.commit()
             Base.metadata.create_all(bind=engine)
 
@@ -352,7 +352,7 @@ class IngestAlagoasStreetsService:
 
     def execute(self, batch_size: int = 100):
         try:
-            self.db.execute(text("CREATE SCHEMA IF NOT EXISTS logistics_gis"))
+            self.db.execute(text("CREATE SCHEMA IF NOT EXISTS prototype_gis"))
             self.db.commit()
 
             # Security: Create SQLAlchemy tables in PostGIS if they don't exist yet
@@ -472,7 +472,7 @@ class QueryAlagoasStreetsService:
 
     def execute(self):
         try:
-            self.db.execute(text("CREATE SCHEMA IF NOT EXISTS logistics_gis"))
+            self.db.execute(text("CREATE SCHEMA IF NOT EXISTS prototype_gis"))
             self.db.commit()
             Base.metadata.create_all(bind=engine)
 

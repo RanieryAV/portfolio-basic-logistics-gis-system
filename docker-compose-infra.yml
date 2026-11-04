@@ -15,7 +15,7 @@ services:
       - "${JUPYTER_NOTEBOOK_PORT}:${JUPYTER_NOTEBOOK_PORT}"
   
   app-postgis-db:
-    image: kartoza/postgis:15-3.3
+    image: kartoza/postgis:18-3.6
     container_name: app_postgis_db
     ports:
       - "${POSTGRES_PORT}:${POSTGRES_PORT}"
@@ -38,7 +38,7 @@ services:
 
 
   app-dbeaver:
-    image: dbeaver/cloudbeaver:latest
+    image: dbeaver/cloudbeaver:26.2.4
     container_name: app_dbeaver
     restart: always
     environment:
@@ -100,7 +100,7 @@ services:
       - spark-events:/opt/spark-events
       - ./shared/utils/datasets:/app/datasets
       - ./shared/utils/processed_output:/app/processed_output
-      - /infrastructure/jars/postgresql-42.7.3.jar:/opt/jars/postgresql.jar:ro
+      - /infrastructure/jars/postgresql-42.7.14.jar:/opt/jars/postgresql.jar:ro
     networks:
       - logistics-gis-network
 
@@ -126,7 +126,7 @@ services:
       - spark-events:/opt/spark-events
       - ./shared/utils/datasets:/app/datasets
       - ./shared/utils/processed_output:/app/processed_output
-      - /infrastructure/jars/postgresql-42.7.3.jar:/opt/jars/postgresql.jar:ro
+      - /infrastructure/jars/postgresql-42.7.14.jar:/opt/jars/postgresql.jar:ro
     networks:
       - logistics-gis-network
 
@@ -152,7 +152,7 @@ services:
       - spark-events:/opt/spark-events
       - ./shared/utils/datasets:/app/datasets
       - ./shared/utils/processed_output:/app/processed_output
-      - /infrastructure/jars/postgresql-42.7.3.jar:/opt/jars/postgresql.jar:ro
+      - /infrastructure/jars/postgresql-42.7.14.jar:/opt/jars/postgresql.jar:ro
     networks:
       - logistics-gis-network
   
@@ -178,7 +178,7 @@ services:
   #     - spark-events:/opt/spark-events
   #     - ./shared/utils/datasets:/app/datasets
   #     - ./shared/utils/processed_output:/app/processed_output
-  #    - /infrastructure/jars/postgresql-42.7.3.jar:/opt/jars/postgresql.jar:ro
+  #    - /infrastructure/jars/postgresql-42.7.14.jar:/opt/jars/postgresql.jar:ro
   #   networks:
   #     - logistics-gis-network
 

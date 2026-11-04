@@ -1,0 +1,9 @@
+FROM kartoza/postgis:18-3.6
+
+# A imagem do Kartoza geralmente exige root para instalar pacotes via apt
+USER root
+
+# Instala a extensão H3 compilada especificamente para o PostgreSQL 18
+RUN apt-get update \
+    && apt-get install -y postgresql-18-h3 \
+    && rm -rf /var/lib/apt/lists/*

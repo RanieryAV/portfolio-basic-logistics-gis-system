@@ -15,8 +15,10 @@ services:
       - "${JUPYTER_NOTEBOOK_PORT}:${JUPYTER_NOTEBOOK_PORT}"
   
   app-postgis-db:
-    image: kartoza/postgis:18-3.6
     container_name: app_postgis_db
+    build:
+      context: infrastructure/database/postgis/
+      dockerfile: dockerfile.postgis
     ports:
       - "${POSTGRES_PORT}:${POSTGRES_PORT}"
     environment:
@@ -34,7 +36,7 @@ services:
       - ./infrastructure/database/postgis/init.sql:/docker-entrypoint-initdb.d/init.sql:Z
       - type: bind
         source: ./infrastructure/database/postgis/data
-        target: /var/lib/postgresql/15
+        target: /var/lib/postgresql/18
 
 
   app-dbeaver:

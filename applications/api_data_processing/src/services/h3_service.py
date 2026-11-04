@@ -12,13 +12,16 @@ from domain.repositories.data_processing.alagoas_streets import AlagoasStreets
 
 logger = logging.getLogger(__name__)
 
+# GLOBAL MEMORY CACHE TO AVOID H3 RECALCULATIONS
+_H3_CACHE = {}
+
 def _build_hexagon_feature(h3_index: str, properties: dict) -> dict:
     """
-    Utilitário interno para converter um índice H3 em um Polígono GeoJSON nativo (dicionário).
+    Internal utility to convert an H3 index into a native GeoJSON Polygon (dictionary).
     """
     boundary = h3.cell_to_boundary(h3_index)
     
-    # GeoJSON exige ordem (longitude, latitude) e que o anel seja fechado
+    # GeoJSON requires (longitude, latitude) order and a closed ring
     geojson_coords = [[(lng, lat) for lat, lng in boundary]]
     geojson_coords[0].append(geojson_coords[0][0]) 
     
@@ -34,19 +37,23 @@ def _build_hexagon_feature(h3_index: str, properties: dict) -> dict:
 
 class QueryH3PostalAgenciesService:
     """
-    Serviço responsável por buscar as agências postais no PostGIS 
-    e convertê-las em uma malha hexagonal H3 (Pontos).
+    Service responsible for fetching postal agencies from PostGIS 
+    and converting them into an H3 hexagonal grid (Points).
     """
     def __init__(self):
         self.db = SessionLocal()
 
     def execute(self, resolution: int = 8):
+        cache_key = f"agencies_{resolution}"
+        if cache_key in _H3_CACHE:
+            return _H3_CACHE[cache_key]
+
         try:
             self.db.execute(text("CREATE SCHEMA IF NOT EXISTS logistics_gis"))
             self.db.commit()
             Base.metadata.create_all(bind=engine)
 
-            # Utiliza ST_X e ST_Y como o QueryPostalAgenciesService
+            # Uses ST_X and ST_Y similar to QueryPostalAgenciesService
             agencies_data = self.db.query(
                 PostalAgencies,
                 func.ST_X(PostalAgencies.location).label("longitude"),
@@ -56,7 +63,7 @@ class QueryH3PostalAgenciesService:
             unique_hexagons = {}
             for agency, longitude, latitude in agencies_data:
                 try:
-                    # latlng_to_cell processa as coordenadas isoladas do ponto
+                    # latlng_to_cell processes the isolated point coordinates
                     h3_index = h3.latlng_to_cell(latitude, longitude, resolution)
                     
                     if h3_index not in unique_hexagons:
@@ -67,13 +74,15 @@ class QueryH3PostalAgenciesService:
                             "type": "point_agency"
                         })
                 except Exception as e:
-                    logger.error(f"Falha ao gerar H3 para agência {agency.name}: {str(e)}")
+                    logger.error(f"Failed to generate H3 for agency {agency.name}: {str(e)}")
                     continue
                     
-            return {"type": "FeatureCollection", "features": list(unique_hexagons.values())}
+            result = {"type": "FeatureCollection", "features": list(unique_hexagons.values())}
+            _H3_CACHE[cache_key] = result
+            return result
 
         except Exception as e:
-            logger.error(f"Erro ao consultar agências H3: {str(e)}")
+            logger.error(f"Error querying H3 agencies: {str(e)}")
             return {"type": "FeatureCollection", "features": []}
         finally:
             self.db.close()
@@ -81,19 +90,23 @@ class QueryH3PostalAgenciesService:
 
 class QueryH3NeighborhoodsService:
     """
-    Serviço responsável por buscar os limites dos bairros no PostGIS 
-    e preenchê-los com uma malha hexagonal H3 (Polígonos).
+    Service responsible for fetching neighborhood boundaries from PostGIS 
+    and filling them with an H3 hexagonal grid (Polygons).
     """
     def __init__(self):
         self.db = SessionLocal()
 
     def execute(self, resolution: int = 8):
+        cache_key = f"neighborhoods_{resolution}"
+        if cache_key in _H3_CACHE:
+            return _H3_CACHE[cache_key]
+
         try:
             self.db.execute(text("CREATE SCHEMA IF NOT EXISTS logistics_gis"))
             self.db.commit()
             Base.metadata.create_all(bind=engine)
 
-            # Transforma a geometria diretamente em texto GeoJSON no banco
+            # Transforms geometry directly into GeoJSON text in the database
             neighborhoods_data = self.db.query(
                 Neighborhoods,
                 func.ST_AsGeoJSON(Neighborhoods.geom).label("geojson_geom"),
@@ -111,7 +124,7 @@ class QueryH3NeighborhoodsService:
                     coords = geom_dict.get("coordinates", [])
                     
                     outer_boundary = []
-                    # H3 exige a ordem (latitude, longitude) para o seu polígono interno
+                    # H3 requires (latitude, longitude) order for its internal polygon
                     if geom_dict["type"] == "Polygon":
                         outer_boundary = [(lat, lng) for lng, lat in coords[0]]
                     elif geom_dict["type"] == "MultiPolygon":
@@ -120,7 +133,7 @@ class QueryH3NeighborhoodsService:
                     if not outer_boundary:
                         continue
 
-                    h3_poly = h3.Polygon(outer_boundary)
+                    h3_poly = h3.LatLngPoly(outer_boundary)
                     h3_indices = h3.polygon_to_cells(h3_poly, resolution)
 
                     if len(h3_indices) == 0 and centroid_lat and centroid_lng:
@@ -135,13 +148,15 @@ class QueryH3NeighborhoodsService:
                                 "type": "polygon_area"
                             })
                 except Exception as e:
-                    logger.error(f"Falha ao processar polígono {area.code}: {str(e)}")
+                    logger.error(f"Failed to process polygon {area.code}: {str(e)}")
                     continue
 
-            return {"type": "FeatureCollection", "features": list(unique_hexagons.values())}
+            result = {"type": "FeatureCollection", "features": list(unique_hexagons.values())}
+            _H3_CACHE[cache_key] = result
+            return result
 
         except Exception as e:
-            logger.error(f"Erro ao consultar bairros H3: {str(e)}")
+            logger.error(f"Error querying H3 neighborhoods: {str(e)}")
             return {"type": "FeatureCollection", "features": []}
         finally:
             self.db.close()
@@ -149,19 +164,23 @@ class QueryH3NeighborhoodsService:
 
 class QueryH3AlagoasStreetsService:
     """
-    Serviço responsável por buscar a malha de arruamento, expandi-la 
-    via ST_Buffer no banco e aplicar os hexágonos H3 (Linhas).
+    Service responsible for fetching the street network, expanding it 
+    via ST_Buffer in the database and applying H3 hexagons (Lines).
     """
     def __init__(self):
         self.db = SessionLocal()
 
     def execute(self, resolution: int = 8, buffer_degrees: float = None):
+        cache_key = f"streets_{resolution}"
+        if cache_key in _H3_CACHE:
+            return _H3_CACHE[cache_key]
+
         try:
             self.db.execute(text("CREATE SCHEMA IF NOT EXISTS logistics_gis"))
             self.db.commit()
             Base.metadata.create_all(bind=engine)
 
-            # ST_Buffer transforma a LineString em Polygon em tempo de execução
+            # ST_Buffer transforms LineString into Polygon at runtime
             streets_data = self.db.query(
                 AlagoasStreets,
                 func.ST_AsGeoJSON(AlagoasStreets.geom).label("geojson_geom")
@@ -213,13 +232,15 @@ class QueryH3AlagoasStreetsService:
                                 })
                             
                 except Exception as e:
-                    logger.error(f"Falha ao processar rua {street.name}: {str(e)}")
+                    logger.error(f"Failed to process street {street.name}: {str(e)}")
                     continue
 
-            return {"type": "FeatureCollection", "features": list(unique_hexagons.values())}
+            result = {"type": "FeatureCollection", "features": list(unique_hexagons.values())}
+            _H3_CACHE[cache_key] = result
+            return result
 
         except Exception as e:
-            logger.error(f"Erro ao consultar ruas H3: {str(e)}")
+            logger.error(f"Error querying H3 streets: {str(e)}")
             return {"type": "FeatureCollection", "features": []}
         finally:
             self.db.close()

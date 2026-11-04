@@ -6,6 +6,7 @@ infrastructure/database/postgis/data/*
 __pycache__
 *.pkl
 logistics_gis_venv/
+gis_prototype_venv/
 
 # Pants (smart build system)
 .pants.d/
@@ -178,7 +179,7 @@ activemq-data/
 .envrc
 .venv
 env/
-logistics_gis_venv/
+gis_prototype_venv/
 venv/
 ENV/
 env.bak/

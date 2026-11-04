@@ -9,7 +9,7 @@ source ./.env
 set +a
 
 # activate the virtual environment
-VENV_NAME="logistics_gis_venv"
+VENV_NAME="gis_prototype_venv"
 source "./$VENV_NAME/bin/activate"
 source "./$VENV_NAME/Scripts/activate"
 
@@ -18,7 +18,7 @@ echo " Initializing Local API: Model Deployment (FastAPI)"
 echo "="
 
 echo "=> Activating virtual environment..."
-source logistics_gis_venv/bin/activate
+source gis_prototype_venv/bin/activate
 
 echo "=> Initializing Uvicorn with Hot-Reload on port ${FASTAPI_MODEL_DEPLOYMENT_PORT}..."
 

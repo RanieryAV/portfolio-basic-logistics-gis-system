@@ -53,7 +53,7 @@ fi
 export PYTHONPATH=$PYTHONPATH:$(pwd)
 
 # Create and activate a virtual environment using pyenv
-VENV_NAME="logistics_gis_venv"
+VENV_NAME="gis_prototype_venv"
 
 # Check if the virtual environment already exists
 if [ ! -d "./$VENV_NAME" ]; then

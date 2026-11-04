@@ -33,9 +33,9 @@ class QueryH3PostalAgenciesService:
             self.db.commit()
             Base.metadata.create_all(bind=engine)
 
-            # Uses h3_lat_lng_to_cell to generate the H3 index from the point,
+            # Uses h3_latlng_to_cell to generate the H3 index from the point,
             # and h3_cell_to_boundary_geometry to extract the hexagon polygon.
-            h3_index_expr = func.h3_lat_lng_to_cell(PostalAgencies.location, resolution)
+            h3_index_expr = func.h3_latlng_to_cell(PostalAgencies.location, resolution)
             
             hex_subq = self.db.query(
                 h3_index_expr.label("h3_index"),
@@ -96,35 +96,43 @@ class QueryH3NeighborhoodsService:
             self.db.commit()
             Base.metadata.create_all(bind=engine)
 
-            query = text("""
-                SELECT jsonb_build_object(
-                    'type', 'FeatureCollection',
-                    'features', COALESCE(jsonb_agg(
-                        jsonb_build_object(
-                            'type', 'Feature',
-                            'geometry', CAST(ST_AsGeoJSON(hex.geom) AS JSONB),
-                            'properties', jsonb_build_object(
-                                'h3_index', CAST(hex.h3_index AS TEXT),
-                                'code', hex.code,
-                                'name', hex.name,
-                                'type', 'polygon_area'
-                            )
-                        )
-                    ), CAST('[]' AS JSONB))
-                ) AS geojson
-                FROM (
-                    SELECT DISTINCT ON (cells.h3_index)
-                        cells.h3_index AS h3_index,
-                        h3_cell_to_boundary_geometry(cells.h3_index) AS geom,
-                        n.code,
-                        n.name
-                    FROM prototype_gis.neighborhoods n
-                    CROSS JOIN LATERAL ST_Dump(n.geom) AS poly
-                    CROSS JOIN LATERAL h3_polygon_to_cells(poly.geom, :resolution) AS cells(h3_index)
-                ) AS hex;
-            """)
+            # render_derived(name="alias") automatically appends the column names 
+            # defined in table_valued() to generate 'AS alias(col_name)'
+            poly = func.ST_Dump(Neighborhoods.geom).table_valued("path", "geom").render_derived(name="poly")
+            cells = func.h3_polygon_to_cells(poly.c.geom, resolution).table_valued("h3_index").render_derived(name="cells")
 
-            result = self.db.execute(query, {"resolution": resolution}).scalar()
+            hex_subq = self.db.query(
+                cells.c.h3_index.label("h3_index"),
+                func.h3_cell_to_boundary_geometry(cells.c.h3_index).label("geom"),
+                Neighborhoods.code,
+                Neighborhoods.name
+            ).select_from(
+                Neighborhoods
+            ).join(
+                poly, literal_column("true")
+            ).join(
+                cells, literal_column("true")
+            ).distinct(cells.c.h3_index).subquery("hex")
+
+            geojson_feature = func.jsonb_build_object(
+                'type', 'Feature',
+                'geometry', cast(func.ST_AsGeoJSON(hex_subq.c.geom), JSONB),
+                'properties', func.jsonb_build_object(
+                    'h3_index', cast(hex_subq.c.h3_index, Text),
+                    'code', hex_subq.c.code,
+                    'name', hex_subq.c.name,
+                    'type', 'polygon_area'
+                )
+            )
+
+            feature_collection_query = self.db.query(
+                func.jsonb_build_object(
+                    'type', 'FeatureCollection',
+                    'features', func.coalesce(func.jsonb_agg(geojson_feature), cast('[]', JSONB))
+                )
+            )
+
+            result = feature_collection_query.scalar()
             
             if not result:
                 return {"type": "FeatureCollection", "features": []}
@@ -159,37 +167,43 @@ class QueryH3AlagoasStreetsService:
             Base.metadata.create_all(bind=engine)
 
             buffer_val = buffer_degrees if buffer_degrees is not None else 0.0001
+            buffered_geom = func.ST_Buffer(AlagoasStreets.geom, buffer_val)
 
-            query = text("""
-                SELECT jsonb_build_object(
+            poly = func.ST_Dump(buffered_geom).table_valued("path", "geom").render_derived(name="poly")
+            cells = func.h3_polygon_to_cells(poly.c.geom, resolution).table_valued("h3_index").render_derived(name="cells")
+
+            hex_subq = self.db.query(
+                cells.c.h3_index.label("h3_index"),
+                func.h3_cell_to_boundary_geometry(cells.c.h3_index).label("geom"),
+                AlagoasStreets.ref,
+                AlagoasStreets.name
+            ).select_from(
+                AlagoasStreets
+            ).join(
+                poly, literal_column("true")
+            ).join(
+                cells, literal_column("true")
+            ).distinct(cells.c.h3_index).subquery("hex")
+
+            geojson_feature = func.jsonb_build_object(
+                'type', 'Feature',
+                'geometry', cast(func.ST_AsGeoJSON(hex_subq.c.geom), JSONB),
+                'properties', func.jsonb_build_object(
+                    'h3_index', cast(hex_subq.c.h3_index, Text),
+                    'ref', hex_subq.c.ref,
+                    'name', hex_subq.c.name,
+                    'type', 'path_line'
+                )
+            )
+
+            feature_collection_query = self.db.query(
+                func.jsonb_build_object(
                     'type', 'FeatureCollection',
-                    'features', COALESCE(jsonb_agg(
-                        jsonb_build_object(
-                            'type', 'Feature',
-                            'geometry', CAST(ST_AsGeoJSON(hex.geom) AS JSONB),
-                            'properties', jsonb_build_object(
-                                'h3_index', CAST(hex.h3_index AS TEXT),
-                                'ref', hex.ref,
-                                'name', hex.name,
-                                'type', 'path_line'
-                            )
-                        )
-                    ), CAST('[]' AS JSONB))
-                ) AS geojson
-                FROM (
-                    SELECT DISTINCT ON (cells.h3_index)
-                        cells.h3_index AS h3_index,
-                        h3_cell_to_boundary_geometry(cells.h3_index) AS geom,
-                        s.ref,
-                        s.name
-                    FROM prototype_gis.alagoas_streets s
-                    CROSS JOIN LATERAL ST_Buffer(s.geom, :buffer_val) AS buffered_geom
-                    CROSS JOIN LATERAL ST_Dump(buffered_geom) AS poly
-                    CROSS JOIN LATERAL h3_polygon_to_cells(poly.geom, :resolution) AS cells(h3_index)
-                ) AS hex;
-            """)
+                    'features', func.coalesce(func.jsonb_agg(geojson_feature), cast('[]', JSONB))
+                )
+            )
 
-            result = self.db.execute(query, {"resolution": resolution, "buffer_val": buffer_val}).scalar()
+            result = feature_collection_query.scalar()
             
             if not result:
                 return {"type": "FeatureCollection", "features": []}

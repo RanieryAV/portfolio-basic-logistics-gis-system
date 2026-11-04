@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { Layout, Card, Typography, Spin, message, Row, Col, Button, Statistic } from 'antd';
+import { Layout, Card, Typography, Spin, message, Row, Col, Button } from 'antd';
 import ReactFlow, { Background, Controls, Node, Edge } from 'reactflow';
 import 'reactflow/dist/style.css';
 
@@ -99,48 +99,49 @@ export default function Home() {
 
     return (
         <Layout style={{ height: '100vh', background: '#f0f2f5', overflow: 'hidden' }}>
-            <Header style={{ background: '#001529', padding: '0 20px', display: 'flex', alignItems: 'center' }}>
+            <Header style={{ background: '#001529', padding: '0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <Title level={3} style={{ color: 'white', margin: 0 }}>GIS Prototype</Title>
+                
+                {/* Elements moved to the right side of the Header */}
+                <Row align="middle" gutter={16}>
+                    <Col>
+                        <span style={{ color: 'rgba(255, 255, 255, 0.65)', marginRight: 8, fontSize: '14px' }}>
+                            API Status (Port: {API_PORT}):
+                        </span>
+                        <span style={{ color: apiStatus === 'Online' ? '#52c41a' : '#ff4d4f', fontWeight: 'bold', fontSize: '14px' }}>
+                            {apiStatus}
+                        </span>
+                    </Col>
+                    <Col>
+                        <Button
+                            type="primary"
+                            onClick={() => {
+                                message.loading({ content: 'Ingesting & Loading All Data...', key: 'ingest' });
+                                
+                                const ingestAgencies = fetch(`${API_BASE_URL}/api/v1/collect/ingest-postal-agencies-file`, { method: 'POST' });
+                                const ingestNeighborhoods = fetch(`${API_BASE_URL}/api/v1/collect/ingest-neighborhoods-file`, { method: 'POST' });
+                                const ingestStreets = fetch(`${API_BASE_URL}/api/v1/collect/ingest-alagoas-streets-file`, { method: 'POST' });
+
+                                Promise.all([ingestAgencies, ingestNeighborhoods, ingestStreets])
+                                    .then(async () => {
+                                        message.success({ content: 'Ingestion triggered, loading map data...', key: 'ingest', duration: 3 });
+                                        fetchMapData(); 
+                                    })
+                                    .catch(() => {
+                                        message.error({ content: 'Failed to ingest data. Check API logs.', key: 'ingest', duration: 3 });
+                                        fetchMapData();
+                                    });
+                            }}
+                        >
+                            Simulate & Load All Data
+                        </Button>
+                    </Col>
+                </Row>
             </Header>
 
             <Content style={{ padding: '12px', width: '100%', display: 'flex', flexDirection: 'column' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', flex: 1, gap: '12px' }}>
-                    <Card styles={{ body: { padding: '6px 8px' } }}>
-                        <Row justify="space-between" align="middle" gutter={[12, 12]}>
-                            <Col>
-                                <Statistic 
-                                  title={`API Status (Port: ${API_PORT})`} 
-                                  value={apiStatus} 
-                                  styles={{ content: { fontSize: 16, lineHeight: 1.2 } }} 
-                                />
-                            </Col>
-                            <Col>
-                                <Button
-                                    type="primary"
-                                    onClick={() => {
-                                        message.loading({ content: 'Ingesting & Loading All Data...', key: 'ingest' });
-                                        
-                                        const ingestAgencies = fetch(`${API_BASE_URL}/api/v1/collect/ingest-postal-agencies-file`, { method: 'POST' });
-                                        const ingestNeighborhoods = fetch(`${API_BASE_URL}/api/v1/collect/ingest-neighborhoods-file`, { method: 'POST' });
-                                        const ingestStreets = fetch(`${API_BASE_URL}/api/v1/collect/ingest-alagoas-streets-file`, { method: 'POST' });
-
-                                        Promise.all([ingestAgencies, ingestNeighborhoods, ingestStreets])
-                                            .then(async () => {
-                                                message.success({ content: 'Ingestion triggered, loading map data...', key: 'ingest', duration: 3 });
-                                                fetchMapData(); 
-                                            })
-                                            .catch(() => {
-                                                message.error({ content: 'Failed to ingest data. Check API logs.', key: 'ingest', duration: 3 });
-                                                fetchMapData();
-                                            });
-                                    }}
-                                >
-                                    Simulate & Load All Data
-                                </Button>
-                            </Col>
-                        </Row>
-                    </Card>
-
+                    
                     <Card 
                         title="Spatial Map (MapLibre + PostGIS)" 
                         variant="borderless" 

@@ -1,9 +1,10 @@
 import json
 import os
 import logging
+from sqlalchemy.dialects.postgresql import JSONB
 from shapely.geometry import shape
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy import text, func
+from sqlalchemy import text, func, cast
 from domain.config.database_config import SessionLocal, engine, Base
 from domain.repositories.data_processing.postal_agencies import PostalAgencies
 from domain.repositories.data_processing.neighborhoods import Neighborhoods
@@ -145,17 +146,16 @@ class IngestPostalAgenciesService:
 class QueryPostalAgenciesService:
     """
     Service responsible for querying the PostGIS database for all saved
-    postal agencies and returning them formatted as a GeoJSON FeatureCollection.
+    postal agencies and returning them natively formatted as a GeoJSON FeatureCollection.
     """
-
     def __init__(self):
         self.db = SessionLocal()
 
     def execute(self):
         """
-        Executes the query and formats the output. Gracefully handles errors
-        by returning an empty FeatureCollection if the database is unavailable
-        or the table doesn't exist yet.
+        Executes the query and formats the output entirely in the database using PostGIS. 
+        Gracefully handles errors by returning an empty FeatureCollection if the database 
+        is unavailable or the table doesn't exist yet.
         """
         try:
             # Ensure schema and tables exist before querying to prevent UndefinedTable error on first load
@@ -163,42 +163,34 @@ class QueryPostalAgenciesService:
             self.db.commit()
             Base.metadata.create_all(bind=engine)
 
-            # Latitude and longitude values are directly extracted from the PostGIS POINT geometry...
-            # using ST_X and ST_Y functions in order to preserve the WKB original binary data
-            agencies_data = self.db.query(
-                PostalAgencies,
-                func.ST_X(PostalAgencies.location).label("longitude"),
-                func.ST_Y(PostalAgencies.location).label("latitude")
-            ).all()
-
-            features = []
-
-            for agency, longitude, latitude in agencies_data:
-                agency_dict = agency.to_dict()
-
-                # Using the raw latitude and longitude floats already saved in the database
-                features.append(
-                    {
-                        "type": "Feature",
-                        "properties": {
-                            "Name": agency_dict.get("name"),
-                            "Address": agency_dict.get("address"),
-                            "City": agency_dict.get("city"),
-                            "State": agency_dict.get("state"),
-                            "ZIP Code": agency_dict.get("zip_code"),
-                            "Phone": agency_dict.get("phone"),
-                        },
-                        "geometry": {
-                            "type": "Point",
-                            "coordinates": [
-                                longitude,
-                                latitude,
-                            ],
-                        },
-                    }
+            # Para as agências, mantemos o mapeamento manual porque o seu frontend 
+            # exige explicitamente chaves com letras maiúsculas e espaços (ex: "ZIP Code").
+            geojson_feature = func.jsonb_build_object(
+                'type', 'Feature',
+                'geometry', cast(func.ST_AsGeoJSON(PostalAgencies.location), JSONB),
+                'properties', func.jsonb_build_object(
+                    'Name', PostalAgencies.name,
+                    'Address', PostalAgencies.address,
+                    'City', PostalAgencies.city,
+                    'State', PostalAgencies.state,
+                    'ZIP Code', PostalAgencies.zip_code,
+                    'Phone', PostalAgencies.phone
                 )
+            )
 
-            return {"type": "FeatureCollection", "features": features}
+            feature_collection_query = self.db.query(
+                func.jsonb_build_object(
+                    'type', 'FeatureCollection',
+                    'features', func.coalesce(func.jsonb_agg(geojson_feature), cast('[]', JSONB))
+                )
+            )
+
+            result = feature_collection_query.scalar()
+            
+            if not result:
+                return {"type": "FeatureCollection", "features": []}
+                
+            return result if isinstance(result, dict) else json.loads(result)
 
         except Exception as e:
             logger.error(f"Error querying postal agencies: {str(e)}")
@@ -320,20 +312,46 @@ class IngestNeighborhoodsService:
 
 
 class QueryNeighborhoodsService:
+    """
+    Service responsible for querying the PostGIS database for all saved
+    neighborhoods and returning them natively formatted as a GeoJSON FeatureCollection.
+    """
     def __init__(self):
         self.db = SessionLocal()
 
     def execute(self):
-        """Queries the database and returns a GeoJSON FeatureCollection."""
         try:
-            # Ensure schema and tables exist before querying to prevent UndefinedTable error on first load
             self.db.execute(text("CREATE SCHEMA IF NOT EXISTS prototype_gis"))
             self.db.commit()
             Base.metadata.create_all(bind=engine)
 
-            neighborhoods = self.db.query(Neighborhoods).all()
-            features = [n.to_dict() for n in neighborhoods]
-            return {"type": "FeatureCollection", "features": features}
+            # Varre dinamicamente todas as colunas da tabela (exceto a geometria) 
+            # para construir os atributos (properties) automaticamente dentro do banco.
+            props_args = []
+            for col in Neighborhoods.__table__.columns:
+                if col.name != 'geom':
+                    props_args.extend([col.name, col])
+
+            geojson_feature = func.jsonb_build_object(
+                'type', 'Feature',
+                'geometry', cast(func.ST_AsGeoJSON(Neighborhoods.geom), JSONB),
+                'properties', func.jsonb_build_object(*props_args)
+            )
+
+            feature_collection_query = self.db.query(
+                func.jsonb_build_object(
+                    'type', 'FeatureCollection',
+                    'features', func.coalesce(func.jsonb_agg(geojson_feature), cast('[]', JSONB))
+                )
+            )
+
+            result = feature_collection_query.scalar()
+            
+            if not result:
+                return {"type": "FeatureCollection", "features": []}
+                
+            return result if isinstance(result, dict) else json.loads(result)
+
         except Exception as e:
             logger.error(f"Error querying neighborhoods: {str(e)}")
             return {"type": "FeatureCollection", "features": []}
@@ -464,9 +482,8 @@ class IngestAlagoasStreetsService:
 class QueryAlagoasStreetsService:
     """
     Service responsible for querying the PostGIS database for all saved
-    streets and returning them formatted as a GeoJSON FeatureCollection.
+    streets and returning them natively formatted as a GeoJSON FeatureCollection.
     """
-
     def __init__(self):
         self.db = SessionLocal()
 
@@ -476,10 +493,31 @@ class QueryAlagoasStreetsService:
             self.db.commit()
             Base.metadata.create_all(bind=engine)
 
-            streets = self.db.query(AlagoasStreets).all()
-            features = [a.to_dict() for a in streets]
+            # Varre dinamicamente todas as colunas da tabela para construir o JSONB
+            props_args = []
+            for col in AlagoasStreets.__table__.columns:
+                if col.name != 'geom':
+                    props_args.extend([col.name, col])
 
-            return {"type": "FeatureCollection", "features": features}
+            geojson_feature = func.jsonb_build_object(
+                'type', 'Feature',
+                'geometry', cast(func.ST_AsGeoJSON(AlagoasStreets.geom), JSONB),
+                'properties', func.jsonb_build_object(*props_args)
+            )
+
+            feature_collection_query = self.db.query(
+                func.jsonb_build_object(
+                    'type', 'FeatureCollection',
+                    'features', func.coalesce(func.jsonb_agg(geojson_feature), cast('[]', JSONB))
+                )
+            )
+
+            result = feature_collection_query.scalar()
+            
+            if not result:
+                return {"type": "FeatureCollection", "features": []}
+                
+            return result if isinstance(result, dict) else json.loads(result)
 
         except Exception as e:
             logger.error(f"Error querying streets: {str(e)}")

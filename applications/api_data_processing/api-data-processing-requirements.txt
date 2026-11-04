@@ -1,6 +1,6 @@
 fastapi==0.104.1
 uvicorn==0.23.2
-pydantic
+pydantic==2.14.2
 SQLAlchemy==2.0.30
 psycopg2-binary==2.9.9
 flasgger==0.9.7b2
@@ -13,6 +13,6 @@ geopy==2.4.1
 matplotlib==3.8.4
 folium==0.17.0
 pyspark==3.5.2
-psutil
-pillow
+psutil==7.2.2
+pillow==13.0.0
 h3==4.1.2

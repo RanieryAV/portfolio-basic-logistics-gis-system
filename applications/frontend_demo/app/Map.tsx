@@ -62,7 +62,7 @@ export default function Map({ geoData, neighborhoodData, streetsData }: MapProps
     if (!map || !mapLoaded) return;
 
     const updateGridAndResolution = () => {
-      // MINIMAL CHANGE: Added 300ms Debounce to prevent UI freezing on fast scrolls
+      // 300ms Debounce to prevent UI freezing on fast scrolls
       if (gridTimeoutRef.current) clearTimeout(gridTimeoutRef.current);
       
       gridTimeoutRef.current = setTimeout(() => {
@@ -83,13 +83,6 @@ export default function Map({ geoData, neighborhoodData, streetsData }: MapProps
           
           try {
             const cells = window.h3.polygonToCells(boundingBox, newResolution, true);
-            
-            // TRAVA DE SEGURANÇA: Previne que o MapLibre congele tentando renderizar dezenas de milhares de células falsas
-            // if (cells.length > 100000) {
-            //   console.warn("Viewport is too large. Clearing base grid to save RAM.");
-            //   map.getSource('h3-base-grid').setData({ type: 'FeatureCollection', features: [] });
-            //   return;
-            // }
 
             const features = cells.map((cell: string) => ({
               type: 'Feature',
@@ -254,10 +247,11 @@ export default function Map({ geoData, neighborhoodData, streetsData }: MapProps
 
         map.on('click', 'neighborhoods-fill', (e: any) => {
           const props = e.features[0].properties;
-          const name = props.NM_BAIRRO || 'Unknown';
-          const city = props.NM_MUN || 'Unknown';
-          const state = props.NM_UF || 'Unknown';
-          const area = props.AREA_KM2 || 0;
+          // ELEGANT FIX: Checking both the DB column format (name, city, state) and the raw file format (NM_BAIRRO, etc.)
+          const name = props.name || props.NM_BAIRRO || 'Unknown';
+          const city = props.city || props.NM_MUN || 'Unknown';
+          const state = props.state || props.NM_UF || 'Unknown';
+          const area = props.area_km2 || props.AREA_KM2 || 0;
           
           addPopup(e, `
             <div style="font-family: Arial, sans-serif;">
@@ -274,11 +268,12 @@ export default function Map({ geoData, neighborhoodData, streetsData }: MapProps
 
         map.on('click', 'streets-line', (e: any) => {
           const props = e.features[0].properties;
+          // Map matching actual database column names
           const ref = props.ref || 'N/A';
           const postalCod = props.postal_cod || 'N/A';
           const name = props.name || 'Unknown Street';
-          const city = props.NM_MUN || 'Unknown';
-          const neighborhood = props.Bairro || 'Unknown';
+          const city = props.nm_mun || props.NM_MUN || 'Unknown';
+          const neighborhood = props.bairro || props.Bairro || 'Unknown';
 
           addPopup(e, `
             <div style="font-family: Arial, sans-serif; min-width: 200px;">
@@ -312,7 +307,7 @@ export default function Map({ geoData, neighborhoodData, streetsData }: MapProps
           const displayCity = props.City || props.Cidade || 'N/A';
           const displayZip = props['ZIP Code'] || props.CEP || 'N/A';
           const displayPhone = props.Phone || props.Telefone || 'N/A';
-          const displayState = props.state || 'AL';
+          const displayState = props.State || props.state || 'AL';
 
           addPopup(e, `
             <div style="font-family: Arial, sans-serif; min-width: 200px;">
@@ -350,7 +345,7 @@ export default function Map({ geoData, neighborhoodData, streetsData }: MapProps
             'fill-color': [
               'match',
               ['get', 'type'],
-              'point_agency', '#f5222d',
+              'point_agency', '#ffa39e',
               'polygon_area', '#1890ff',
               'path_line', '#50C878',
               /* default */ '#000000'
@@ -358,10 +353,10 @@ export default function Map({ geoData, neighborhoodData, streetsData }: MapProps
             'fill-opacity': [
               'match',
               ['get', 'type'],
-              'point_agency', 0.8,
-              'polygon_area', 0.4,
-              'path_line', 0.5,
-              /* default */ 0.5
+              'point_agency', 0.2,
+              'polygon_area', 0.2,
+              'path_line', 0.2,
+              /* default */ 0.2
             ],
             'fill-outline-color': [
               'match',
@@ -381,7 +376,7 @@ export default function Map({ geoData, neighborhoodData, streetsData }: MapProps
               <div style="font-family: Arial, sans-serif;">
                 <h4 style="margin: 0; color: #333;">H3 Cell</h4>
                 <p style="margin: 4px 0 2px 0; font-size: 13px;"><strong>Index:</strong> ${props.h3_index}</p>
-                <p style="margin: 2px 0; font-size: 13px;"><strong>Ref/Nome:</strong> ${props.name || props.ref || 'N/A'}</p>
+                <p style="margin: 2px 0; font-size: 13px;"><strong>Ref/Name:</strong> ${props.name || props.ref || 'N/A'}</p>
               </div>
             `);
         });
@@ -431,7 +426,7 @@ export default function Map({ geoData, neighborhoodData, streetsData }: MapProps
     }
   }, []);
 
-  // 2. DATA INJECTION (Originals + H3)
+  // 2. DATA INJECTION
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapLoaded) return;
@@ -542,18 +537,21 @@ export default function Map({ geoData, neighborhoodData, streetsData }: MapProps
           </label>
         </div>
 
-        <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', cursor: 'pointer' }}>
+        <label style={{ display: 'flex', alignItems: 'center', marginBottom: '6px', fontSize: '13px', cursor: 'pointer' }}>
           <input type="checkbox" checked={layers.neighborhoods} onChange={e => setLayers(prev => ({...prev, neighborhoods: e.target.checked}))} style={{ marginRight: '8px' }}/>
+          <span style={{ display: 'inline-block', width: '12px', height: '12px', backgroundColor: '#1890ff', marginRight: '6px', borderRadius: '2px', border: '1px solid #ccc' }}></span>
           Neighborhoods (MultiPolygon)
         </label>
 
-        <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', cursor: 'pointer' }}>
+        <label style={{ display: 'flex', alignItems: 'center', marginBottom: '6px', fontSize: '13px', cursor: 'pointer' }}>
           <input type="checkbox" checked={layers.streets} onChange={e => setLayers(prev => ({...prev, streets: e.target.checked}))} style={{ marginRight: '8px' }}/>
+          <span style={{ display: 'inline-block', width: '12px', height: '12px', backgroundColor: '#50C878', marginRight: '6px', borderRadius: '2px', border: '1px solid #ccc' }}></span>
           Alagoas Streets (MultiLineString)
         </label>
 
-        <label style={{ display: 'block', fontSize: '13px', cursor: 'pointer' }}>
+        <label style={{ display: 'flex', alignItems: 'center', fontSize: '13px', cursor: 'pointer' }}>
           <input type="checkbox" checked={layers.agencies} onChange={e => setLayers(prev => ({...prev, agencies: e.target.checked}))} style={{ marginRight: '8px' }}/>
+          <span style={{ display: 'inline-block', width: '12px', height: '12px', backgroundColor: '#f5222d', marginRight: '6px', borderRadius: '2px', border: '1px solid #ccc' }}></span>
           Postal Agencies (Point)
         </label>
       </div>

@@ -22,27 +22,29 @@
     chmod +x scripts/set_up_folder_permissions.sh
     ./scripts/set_up_folder_permissions.sh
     ```
-4. Run the `create_nextjs_app.sh` script to create the Next.js application for the frontend demo.
+4. Backup the existing files from the `applications/frontend_demo/app` directory.
+5. Run the `create_nextjs_app.sh` script to create the Next.js application for the frontend demo.
     ```sh
     chmod +x scripts/create_nextjs_app.sh
     ./scripts/create_nextjs_app.sh
     ```
-5. Place general dataset files into `shared/utils/datasets/`:
+6. Restore the backed-up files by pasting them into the newly recreated `applications/frontend_demo/app` directory, overwriting the existing files.
+7. Place general dataset files into `shared/utils/datasets/`:
  - Access the following websites:
     - [Portal de Dados Abertos - Agências dos Correios nos municípios alagoanos (click here)](https://dados.gov.br/dados/conjuntos-dados/agencias-dos-correios-nos-municipios-alagoanos) , click the **`Recursos`** dropdown menu to reveal the available resource sections and download the **`correios_al.geojson.json`** file by clicking on the button named **`Acessar o recurso`** right under the section **`[GeoJSON]  gências dos Correios`**.
     - [Portal de Dados Abertos - Bairros de Alagoas (click here)](https://dados.gov.br/dados/conjuntos-dados/bairros-de-alagoas1) , click the **`Recursos`** dropdown menu to reveal the available resource sections and download the **`bairros.geojson.json`** file by clicking on the button named **`Acessar o recurso`** right under the section **`[GeoJSON]  Bairros de Alagoas Censo IBGE 2022`**.
     - [Portal de Dados Abertos - Malha de Ruas e Avenidas 🌎 (click here)](https://dados.gov.br/dados/conjuntos-dados/malha-de-ruas-e-avenidas1) , click the **`Recursos`** dropdown menu to reveal the available resource sections and download the **`arruamento-al-osm.geojson.json`** file by clicking on the button named **`Acessar o recurso`** right under the section **`[GeoJSON]  Malha de arruamento`**.
     - Then, place the **`correios_al.geojson.json`**, **`bairros.geojson.json`** and **`arruamento-al-osm.geojson.json`** files in the **`shared/utils/datasets/`** directory.
-6. Run the `docker-compose-infra.yml` file to start the necessary infrastructure services.
+8. Run the `docker-compose-infra.yml` file to start the necessary infrastructure services.
     ```sh
     docker compose -f docker-compose-infra.yml up -d --build
     ```
-7. Run the `docker-compose-services.yml` file to start the essential services.
+9. Run the `docker-compose-services.yml` file to start the essential services.
     ```sh
     docker compose -f docker-compose-apps.yml up -d --build
     ```
 
-8. **[OPTIONAL]** If you prefer to run the apps locally (outside of Docker containers), you can do so by following the instructions below:
+10. **[OPTIONAL]** If you prefer to run the apps locally (outside of Docker containers), you can do so by following the instructions below:
     - For the Data Processing API, run the commands below from the repository root directory:
     ```sh
     chmod +x scripts/launch_data_processing_api.sh
